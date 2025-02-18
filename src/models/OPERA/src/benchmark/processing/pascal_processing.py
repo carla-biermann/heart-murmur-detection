@@ -16,14 +16,19 @@ if not os.path.exists(data_dir):
     print(os.getcwd())
     raise FileNotFoundError(f"Folder not found: {data_dir}, please ensure the dataset is downloaded.")
 
-def get_labels(dataset):
-    """Read labels from ZCHSound CSV file and create mappings."""
+def read_data(dataset):
+    """Read data from data_dir and create file -> label mappings."""
+    dirs_A = ['Atraining_artifact', 'Atraining_extrahls', 'Atraining_murmur', 'Atraining_normal']
+    dirs_B = ['Btraining_extrastole', 'Btraining_murmur', 'BTraining_normal']
+
     if dataset == 'A':
         label_to_int = {'normal': 0, 'murmur': 1, 'extrahls': 2, 'artifact': 3}
         int_to_label = {0: 'normal', 1: 'murmur', 2: 'extrahls', 3: 'artifact'}  
+        dirs = dirs_A
     elif dataset == 'B':
         label_to_int = {'normal': 0, 'murmur': 1, 'extrastole': 2}
         int_to_label = {0: 'normal', 1: 'murmur', 2: 'extrastole'}  
+        dirs = dirs_B
     else:
         raise ValueError(f"Please input a valid value for dataset: A or B.")
 
@@ -32,25 +37,6 @@ def get_labels(dataset):
         json.dump(label_to_int, f)
     with open(feature_dir + "int_to_label.json", "w") as f:
         json.dump(int_to_label, f)
-
-    return label_to_int
-
-
-def preprocess_split(dataset):
-    """Split dataset into train, val, and test sets, and save splits."""
-    
-    label_to_int = get_labels(dataset)
-    int_to_label = {v: k for k, v in label_to_int.items()}
-
-    dirs_A = ['Atraining_artifact', 'Atraining_extrahls', 'Atraining_murmur', 'Atraining_normal']
-    dirs_B = ['Btraining_extrastole', 'Btraining_murmur', 'BTraining_normal']
-    
-    if dataset == 'A':
-        dirs = dirs_A
-    elif dataset == 'B':
-        dirs = dirs_B
-    else:
-        raise ValueError(f"Please input a valid value for dataset: A or B.")
     
     # Collect sound files and labels
     sound_files = []
@@ -68,10 +54,18 @@ def preprocess_split(dataset):
     sound_files = np.array(sound_files)
     labels = np.array(labels)
 
+    return sound_files, labels, int_to_label
+
+
+def preprocess_split(dataset):
+    """Split dataset into train, val, and test sets, and save splits."""
+    
+    sound_files, labels, int_to_label = read_data(dataset)
+
     # Verify initial distribution
     print("Initial Class Distribution:", dict(collections.Counter(labels)))
 
-    # Perform stratified splits on the actual sound files
+    # Perform stratified splits on the sound files
     _x_train, x_test, _y_train, y_test = train_test_split(
         sound_files, labels, 
         test_size=0.2, 
@@ -81,7 +75,7 @@ def preprocess_split(dataset):
 
     x_train, x_val, y_train, y_val = train_test_split(
         _x_train, _y_train, 
-        test_size=0.2,  # 0.25 * 0.8 = 0.2 of total dataset
+        test_size=0.2,
         random_state=1337, 
         stratify=_y_train
     )
