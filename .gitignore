@@ -1,9 +1,9 @@
-datasets_new/
+datasets/
 wandb/
 
 # Saved OPERA models
 src/models/OPERA/cks/model/*
-src/models/OPERA/datasets_new
+src/models/OPERA/datasets
 src/models/OPERA/feature/zchsound_eval
 src/models/OPERA/scripts/zchsound_eval.sh
 src/models/OPERA/scripts/pascal_eval.sh
