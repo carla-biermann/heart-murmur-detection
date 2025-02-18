@@ -7,7 +7,6 @@ src/models/OPERA/cks/model/*
 # Datasets
 src/models/OPERA/datasets/*
 
-src/models/OPERA/feature/zchsound_eval
 src/models/OPERA/scripts/pascal_eval.sh
 src/models/OPERA/src/benchmark/processing/pascal_processing.py
 
