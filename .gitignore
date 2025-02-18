@@ -7,8 +7,8 @@ src/models/OPERA/cks/model/*
 # Datasets
 src/models/OPERA/datasets/*
 
+# PASCAL work
 src/models/OPERA/scripts/pascal_eval.sh
-src/models/OPERA/src/benchmark/processing/pascal_processing.py
 
 
 
