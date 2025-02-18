@@ -1,0 +1,136 @@
+import glob as gb
+import argparse
+import collections
+import numpy as np
+from sklearn.model_selection import train_test_split
+import csv
+import json
+import os
+
+# Directories
+data_dir = "datasets/ZCHSound/"
+audio_dir = data_dir + "clean Heartsound Data"
+feature_dir = "feature/zchsound_eval/"
+
+# Check if audio directory exists
+if not os.path.exists(audio_dir):
+    print(os.getcwd())
+    raise FileNotFoundError(f"Folder not found: {audio_dir}, please ensure the dataset is downloaded.")
+
+def get_labels_from_csv(path):
+    """Read labels from ZCHSound CSV file and create mappings."""
+    label_dict = {}
+    label_set = set()  # Collect unique labels for mapping
+
+    with open(path, 'r') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=';')
+        header = next(csvreader)  # Skip header
+        for row in csvreader:
+            file_id, diagnosis = row[0], row[3]
+            label_dict[file_id] = diagnosis
+            label_set.add(diagnosis)
+
+    # Create label mappings
+    label_to_int = {label: idx for idx, label in enumerate(sorted(label_set))}
+    int_to_label = {idx: label for label, idx in label_to_int.items()}
+
+    # Save mappings
+    with open(feature_dir + "label_to_int.json", "w") as f:
+        json.dump(label_to_int, f)
+    with open(feature_dir + "int_to_label.json", "w") as f:
+        json.dump(int_to_label, f)
+
+    print(f"Label Mappings: {label_to_int}")
+    return label_dict, label_to_int
+
+def preprocess_split():
+    """Split dataset into train, val, and test sets, and save splits."""
+    label_dict, label_to_int = get_labels_from_csv(data_dir + "Clean Heartsound Data Details.csv")
+
+    # Get patient IDs and labels (convert labels to integers)
+    patient_ids = list(label_dict.keys())
+    labels = [label_to_int[label_dict[u]] for u in patient_ids]
+
+    # Split: Train (64%), Val (16%), Test (20%)
+    _x_train, x_test, _y_train, y_test = train_test_split(
+        patient_ids, labels, test_size=0.2, random_state=42, stratify=labels
+    )
+    x_train, x_val, y_train, y_val = train_test_split(
+        _x_train, _y_train, test_size=0.2, random_state=42, stratify=_y_train
+    )
+
+    print("Class distribution:")
+    print(f"Train: {collections.Counter(y_train)}")
+    print(f"Val: {collections.Counter(y_val)}")
+    print(f"Test: {collections.Counter(y_test)}")
+
+    # Save .wav file locations
+    sound_files = np.array(gb.glob(audio_dir + "/*.wav"))
+    np.save(feature_dir + "sound_dir_loc.npy", sound_files)
+
+    # Create train/val/test splits for audio files
+    audio_splits = []
+    audio_labels = []
+    for file in sound_files:
+        file_id = os.path.basename(file).split(".")[0]  # Extract file ID from filename
+        if file_id in x_train:
+            audio_splits.append("train")
+        elif file_id in x_val:
+            audio_splits.append("val")
+        else:
+            audio_splits.append("test")
+        audio_labels.append(label_to_int[label_dict[file_id]])
+
+    np.save(feature_dir + "train_test_split.npy", audio_splits)
+    np.save(feature_dir + "labels.npy", audio_labels)
+
+def check_demographic(trait="label"):
+    """Check the class distribution for train/val/test sets."""
+    print(f"Checking class distribution by {trait}")
+
+    sound_files = np.load(feature_dir + "sound_dir_loc.npy")
+    labels = np.load(feature_dir + "labels.npy")
+    splits = np.load(feature_dir + "train_test_split.npy")
+
+    # Load label mappings
+    with open(feature_dir + "int_to_label.json", "r") as f:
+        int_to_label = json.load(f)
+
+    for split_name in ["train", "val", "test"]:
+        subset = sound_files[splits == split_name]
+        counts = collections.defaultdict(int)
+        for i, file in enumerate(subset):
+            label = labels[i]
+            counts[int_to_label[str(label)]] += 1
+        print(f"{split_name.capitalize()} Distribution: {dict(counts)}")
+
+def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
+    from src.benchmark.model_util import extract_opera_feature
+    sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+    opera_features = extract_opera_feature(
+        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim)
+    feature += str(dim)
+    np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pretrain", type=str, default="operaCE")
+    parser.add_argument("--dim", type=int, default=1280)
+    parser.add_argument("--min_len_cnn", type=int, default=8)
+    parser.add_argument("--min_len_htsat", type=int, default=8)
+
+    args = parser.parse_args()
+
+    if not os.path.exists(feature_dir):
+        os.makedirs(feature_dir)
+        preprocess_split()
+        check_demographic()
+
+    if args.pretrain == "operaCT":
+        input_sec = args.min_len_htsat
+    elif args.pretrain == "operaCE":
+        input_sec = args.min_len_cnn
+    elif args.pretrain == "operaGT":
+        input_sec = 8.18
+    extract_and_save_embeddings(
+        args.pretrain, input_sec=input_sec, dim=args.dim)
