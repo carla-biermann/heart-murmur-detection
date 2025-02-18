@@ -72,7 +72,7 @@ def preprocess_split():
     audio_splits = []
     audio_labels = []
     for file in sound_files:
-        file_id = os.path.basename(file).split(".")[0]  # Extract file ID from filename
+        file_id = os.path.basename(file)
         if file_id in x_train:
             audio_splits.append("train")
         elif file_id in x_val:
