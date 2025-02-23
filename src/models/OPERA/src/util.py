@@ -172,7 +172,7 @@ def get_individual_segments_librosa(data_folder, filename, input_sec=8, sample_r
 
     return sample_data
 
-def get_entire_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16000, butterworth_filter=None, spectrogram=False, pad=False, from_cycle=False, yt=None, types='repeat'):
+def get_entire_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16000, butterworth_filter=None, spectrogram=False, pad=False, from_cycle=False, yt=None, types='repeat', lowcut=200, highcut=1800):
 
     if not from_cycle:
 
@@ -181,7 +181,7 @@ def get_entire_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16
 
         if butterworth_filter:
             # butter bandpass filter
-            data = _butter_bandpass_filter(lowcut=200, highcut=1800, fs=sample_rate, order=butterworth_filter)
+            data = _butter_bandpass_filter(lowcut=lowcut, highcut=highcut, fs=sample_rate, order=butterworth_filter)
 
         # Trim leading and trailing silence from an audio signal.
         FRAME_LEN = int(sample_rate / 10)  # 
@@ -253,7 +253,7 @@ def get_entire_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16
 #     return yt
 
 
-def get_split_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16000, butterworth_filter=None, spectrogram=False, trim_tail=False):
+def get_split_signal_librosa(data_folder, filename, input_sec=8, sample_rate=16000, butterworth_filter=None, spectrogram=False, trim_tail=False, lowcut=200, highcut=1800):
     # print(os.path.join(data_folder, filename+'.wav'))
 
     # load file with specified sample rate (also converts to mono)
@@ -263,7 +263,7 @@ def get_split_signal_librosa(data_folder, filename, input_sec=8, sample_rate=160
     if butterworth_filter:
         # butter bandpass filter
         data = _butter_bandpass_filter(
-            lowcut=200, highcut=1800, fs=sample_rate, order=butterworth_filter)
+            lowcut=lowcut, highcut=highcut, fs=sample_rate, order=butterworth_filter)
 
     # Trim leading and trailing silence from an audio signal.
     FRAME_LEN = int(sample_rate / 10)  #
@@ -466,6 +466,7 @@ def _duplicate_padding(sample, source, output_length, sample_rate, types):
     src_length = len(source)
     left = output_length - src_length  # amount to be padded
 
+    print("types", types)
     if types == 'repeat':
         aug = sample
     # else:

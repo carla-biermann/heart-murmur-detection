@@ -6,16 +6,11 @@ from sklearn.model_selection import train_test_split
 import csv
 import json
 import os
+from src.benchmark.model_util import extract_opera_feature
 
 # Directories
 data_dir = "datasets/ZCHSound/"
-audio_dir = data_dir + "clean Heartsound Data"
-feature_dir = "feature/zchsound_eval/"
 
-# Check if audio directory exists
-if not os.path.exists(audio_dir):
-    print(os.getcwd())
-    raise FileNotFoundError(f"Folder not found: {audio_dir}, please ensure the dataset is downloaded.")
 
 def get_labels_from_csv(path):
     """Read labels from ZCHSound CSV file and create mappings."""
@@ -43,9 +38,9 @@ def get_labels_from_csv(path):
     print(f"Label Mappings: {label_to_int}")
     return label_dict, label_to_int
 
-def preprocess_split():
+def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
     """Split dataset into train, val, and test sets, and save splits."""
-    label_dict, label_to_int = get_labels_from_csv(data_dir + "Clean Heartsound Data Details.csv")
+    label_dict, label_to_int = get_labels_from_csv(data_dir + csv_filename)
 
     # Get patient IDs and labels (convert labels to integers)
     patient_ids = list(label_dict.keys())
@@ -105,10 +100,9 @@ def check_demographic(trait="label"):
         print(f"{split_name.capitalize()} Distribution: {dict(counts)}")
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
-    from src.benchmark.model_util import extract_opera_feature
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     opera_features = extract_opera_feature(
-        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim)
+        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim, sr=2000)
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
 
@@ -118,12 +112,29 @@ if __name__ == '__main__':
     parser.add_argument("--dim", type=int, default=1280)
     parser.add_argument("--min_len_cnn", type=int, default=8)
     parser.add_argument("--min_len_htsat", type=int, default=8)
+    parser.add_argument("--data", type=str, default="clean")
 
     args = parser.parse_args()
 
+    if args.data == "clean":
+        audio_dir = data_dir + "clean Heartsound Data"
+        feature_dir = "feature/zchsound_clean_eval/"
+        csv_filename = "Clean Heartsound Data Details.csv"
+    elif args.data == "noisy":
+        audio_dir = data_dir + "Noise Heartsound Data Details"
+        feature_dir = "feature/zchsound_noisy_eval/"
+        csv_filename = "Noise Heartsound Data Details.csv"
+    else:
+        raise ValueError("Please select a valid dataset: clean or noisy")
+
+    # Check if audio directory exists
+    if not os.path.exists(audio_dir):
+        print(os.getcwd())
+        raise FileNotFoundError(f"Folder not found: {audio_dir}, please ensure the dataset is downloaded.")
+
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)
-        preprocess_split()
+        preprocess_split(csv_filename)
         check_demographic()
 
     if args.pretrain == "operaCT":
