@@ -1,9 +1,10 @@
+from enum import Enum
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as nnf
-from enum import Enum
 from transformers import GPT2LMHeadModel
-from typing import Tuple, Optional
 
 
 def get_clapcap(name: str):
@@ -11,7 +12,7 @@ def get_clapcap(name: str):
         return ClapCaptionModel
     else:
         raise Exception(
-            "The ClapCap model {} is incorrect or not supported".format(name)
+            f"The ClapCap model {name} is incorrect or not supported"
         )
 
 

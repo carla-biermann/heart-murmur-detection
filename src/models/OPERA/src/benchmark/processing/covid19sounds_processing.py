@@ -1,8 +1,9 @@
 import argparse
+import os
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import os
 
 task1_data_dir = "datasets/covid19-sounds/0426_EN_used_task1/"
 task1_dir = "feature/covid19sounds_eval/"
@@ -24,7 +25,7 @@ def preprocess_task1(modality="cough"):
     for _, row in tqdm(df.iterrows(), total=df.shape[0]):
         userID = row["Uid"]
         folder = row["Folder Name"]
-        filename = row["{} filename".format(modality.capitalize())]
+        filename = row[f"{modality.capitalize()} filename"]
         split = row["split"]
         label = row["label"]
         if userID[:4] == "2020":
@@ -40,7 +41,7 @@ def preprocess_task1(modality="cough"):
     np.save(task1_dir + "labels.npy", np.array(labels))
     np.save(task1_dir + "data_split.npy", np.array(data_split))
     np.save(
-        task1_dir + "sound_dir_loc_{}.npy".format(modality), np.array(sound_dir_loc)
+        task1_dir + f"sound_dir_loc_{modality}.npy", np.array(sound_dir_loc)
     )
 
 
@@ -65,7 +66,7 @@ def task1_downsample(downsampling_factor=5):
     np.save(task1_downsampled_dir + "data_split.npy", new_splits)
 
     for modality in ["cough", "breath"]:
-        sound_dir_loc = np.load(task1_dir + "sound_dir_loc_{}.npy".format(modality))
+        sound_dir_loc = np.load(task1_dir + f"sound_dir_loc_{modality}.npy")
         train_sound_dir_loc = sound_dir_loc[train_idx]
         downsampled_train_sound_dir_loc = train_sound_dir_loc[::downsampling_factor]
         new_sound_dir_loc = np.concatenate(
@@ -76,7 +77,7 @@ def task1_downsample(downsampling_factor=5):
             ]
         )
         np.save(
-            task1_downsampled_dir + "sound_dir_loc_{}.npy".format(modality),
+            task1_downsampled_dir + f"sound_dir_loc_{modality}.npy",
             new_sound_dir_loc,
         )
 
@@ -87,13 +88,13 @@ def extract_and_save_embeddings_baselines(
     folders = {1: "feature/covid19sounds_eval/downsampled/"}
     feature_dir = folders[task]
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(modality))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
 
     if feature == "opensmile":
         opensmile_features = []
@@ -101,28 +102,28 @@ def extract_and_save_embeddings_baselines(
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
         np.save(
-            feature_dir + "opensmile_feature_{}.npy".format(modality),
+            feature_dir + f"opensmile_feature_{modality}.npy",
             np.array(opensmile_features),
         )
 
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
         np.save(
-            feature_dir + "vggish_feature_{}.npy".format(modality),
+            feature_dir + f"vggish_feature_{modality}.npy",
             np.array(vgg_features),
         )
 
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
         np.save(
-            feature_dir + "clap_feature_{}.npy".format(modality),
+            feature_dir + f"clap_feature_{modality}.npy",
             np.array(clap_features),
         )
 
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
         np.save(
-            feature_dir + "audiomae_feature_{}.npy".format(modality),
+            feature_dir + f"audiomae_feature_{modality}.npy",
             np.array(audiomae_feature),
         )
 
@@ -132,16 +133,16 @@ def extract_opera_features(feature, task=1, modality="cough", input_sec=8, dim=1
     feature_dir = folders[task]
     from src.benchmark.model_util import extract_opera_feature
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(modality))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
     opera_features = extract_opera_feature(
         sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
     )
     feature += str(dim)
     print(
-        "saving feature to", feature_dir + feature + "_feature_{}.npy".format(modality)
+        "saving feature to", feature_dir + feature + f"_feature_{modality}.npy"
     )
     np.save(
-        feature_dir + feature + "_feature_{}.npy".format(modality),
+        feature_dir + feature + f"_feature_{modality}.npy",
         np.array(opera_features),
     )
 

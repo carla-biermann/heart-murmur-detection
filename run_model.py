@@ -9,7 +9,9 @@
 # where 'model' is a folder containing the your trained model, 'data' is a folder containing the Challenge data, and 'outputs' is a
 # folder for saving your model's outputs.
 
-import numpy as np, os, sys
+import os
+import sys
+
 from helper_code import *
 from team_code import load_challenge_model, run_challenge_model
 
@@ -41,7 +43,7 @@ def run_model(model_folder, data_folder, output_folder, allow_failures, verbose)
     # Iterate over the patient files.
     for i in range(num_patient_files):
         if verbose >= 2:
-            print("    {}/{}...".format(i + 1, num_patient_files))
+            print(f"    {i + 1}/{num_patient_files}...")
 
         patient_data = load_patient_data(patient_files[i])
         recordings = load_recordings(data_folder, patient_data)

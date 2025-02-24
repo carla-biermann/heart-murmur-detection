@@ -5,20 +5,21 @@
 # some code below is referenced from https://github.com/raymin0223/patch-mix_contrastive_learning and https://github.com/CVxTz/COLA_pytorch
 
 
-import os
-import torch
-import torchaudio
-from torchaudio import transforms as T
-from scipy.signal import butter, lfilter
-import pandas as pd
-import librosa
-import numpy as np
-import random
 import math
-import matplotlib.pyplot as plt
-import seaborn as sns
-import torch.nn as nn
+import os
+import random
 import time
+
+import librosa
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import torch
+import torch.nn as nn
+import torchaudio
+from scipy.signal import butter, lfilter
+from torchaudio import transforms as T
 
 
 def crop_first(data, crop_size=128):

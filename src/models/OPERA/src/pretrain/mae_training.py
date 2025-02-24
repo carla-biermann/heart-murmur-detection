@@ -1,17 +1,18 @@
-from glob import glob
 import argparse
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
+
+# from pytorch_lightning.utilities import CombinedLoader
+from lightning.pytorch.utilities import CombinedLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CSVLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-# from pytorch_lightning.utilities import CombinedLoader
-from lightning.pytorch.utilities import CombinedLoader
-from src.util import random_crop, random_mask, random_multiply
 from src.model.models_mae import MaskedAutoencoderViTMD
+from src.util import random_crop, random_mask, random_multiply
 
 # might be useful
 # torch.set_float32_matmul_precision("high")
@@ -144,9 +145,7 @@ def mae_train_multiple_data(
             modality = dt[5:]
             filenames = list(
                 np.load(
-                    "datasets/covid19-sounds/SSL_entireaudio_filenames_{}.npy".format(
-                        modality
-                    )
+                    f"datasets/covid19-sounds/SSL_entireaudio_filenames_{modality}.npy"
                 )
             )
 
@@ -227,6 +226,7 @@ def mae_train_multiple_data(
         encoder = "vit"
 
     from functools import partial
+
     import torch.nn as nn
 
     model = MaskedAutoencoderViTMD(

@@ -9,10 +9,16 @@
 #
 ################################################################################
 
-from helper_code import *
-import numpy as np, scipy as sp, scipy.stats, os, sys, joblib
-from sklearn.impute import SimpleImputer
+import os
+
+import joblib
+import numpy as np
+import scipy as sp
+import scipy.stats
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+
+from helper_code import *
 
 ################################################################################
 #
@@ -52,7 +58,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     for i in range(num_patient_files):
         if verbose >= 2:
-            print("    {}/{}...".format(i + 1, num_patient_files))
+            print(f"    {i + 1}/{num_patient_files}...")
 
         # Load the current patient data and recordings.
         current_patient_data = load_patient_data(patient_files[i])

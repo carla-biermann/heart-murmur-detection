@@ -7,8 +7,6 @@
 ###
 
 import os
-import shutil
-
 
 path = "datasets/coughvid/public_dataset"
 

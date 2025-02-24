@@ -1,24 +1,29 @@
+import collections
+import os
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
+from lightning.pytorch import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger
-from lightning.pytorch import seed_everything
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from src.util import random_crop, random_mask, random_multiply, crop_first
+from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
 from src.model.models_eval import (
     AudioClassifier,
-    AudioClassifierCLAP,
     AudioClassifierAudioMAE,
+    AudioClassifierCLAP,
 )
-from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
-from src.util import train_test_split_from_list
-import collections
-import os
+from src.util import (
+    crop_first,
+    random_crop,
+    random_mask,
+    random_multiply,
+    train_test_split_from_list,
+)
 
 torch.backends.cudnn.deterministic = True
 
@@ -135,7 +140,6 @@ def finetune_covid19sounds(
 
     if pretrain == "audiomae":
         from src.benchmark.baseline.audioMAE.models_mae import (
-            mae_vit_small,
             vit_base_patch16,
         )
 
@@ -143,7 +147,7 @@ def finetune_covid19sounds(
             from src.util import get_split_signal_fbank_pad
 
             sound_dir_loc = np.load(
-                feature_dir + "sound_dir_loc_{}.npy".format(modality)
+                feature_dir + f"sound_dir_loc_{modality}.npy"
             )
             x_data = []
             for audio_file in sound_dir_loc:
@@ -182,7 +186,7 @@ def finetune_covid19sounds(
     elif pretrain == "clap":
         from src.benchmark.baseline.msclap import CLAP
 
-        audio_files = np.load(feature_dir + "sound_dir_loc_{}.npy".format(modality))
+        audio_files = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
         x_data = np.array(audio_files)
         clap_model = CLAP(version="2022", use_cuda=True)
         net = clap_model.clap.audio_encoder
@@ -196,11 +200,11 @@ def finetune_covid19sounds(
         )
         from_audio = True
     else:
-        if not os.path.exists(feature_dir + "spectrogram_pad8_{}.npy".format(modality)):
+        if not os.path.exists(feature_dir + f"spectrogram_pad8_{modality}.npy"):
             from src.util import get_split_signal_librosa
 
             sound_dir_loc = np.load(
-                feature_dir + "sound_dir_loc_{}.npy".format(modality)
+                feature_dir + f"sound_dir_loc_{modality}.npy"
             )
             x_data = []
             for audio_file in sound_dir_loc:
@@ -214,9 +218,9 @@ def finetune_covid19sounds(
                 # print(data.shape)
                 x_data.append(data)
             x_data = np.array(x_data)
-            np.save(feature_dir + "spectrogram_pad8_{}.npy".format(modality), x_data)
+            np.save(feature_dir + f"spectrogram_pad8_{modality}.npy", x_data)
 
-        x_data = np.load(feature_dir + "spectrogram_pad8_{}.npy".format(modality))
+        x_data = np.load(feature_dir + f"spectrogram_pad8_{modality}.npy")
         pretrained_model = initialize_pretrained_model(pretrain)
         if pretrain == "null":
             lr = 1e-4
@@ -607,7 +611,6 @@ def finetune_icbhidisease(
     from_audio = False
     if pretrain == "audiomae":
         from src.benchmark.baseline.audioMAE.models_mae import (
-            mae_vit_small,
             vit_base_patch16,
         )
 
@@ -829,7 +832,6 @@ def finetune_icbhidisease(
 
 if __name__ == "__main__":
     import argparse
-    from pathlib import Path
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=str, default="icbhidisease")
@@ -891,8 +893,6 @@ if __name__ == "__main__":
         print("=" * 48)
         print(auc_scores)
         print(
-            "Five times mean task {} finetuning from {} results: auc mean {:.3f} ± {:.3f}".format(
-                args.task, args.pretrain, np.mean(auc_scores), np.std(auc_scores)
-            )
+            f"Five times mean task {args.task} finetuning from {args.pretrain} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)

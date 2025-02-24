@@ -1,6 +1,5 @@
-import pandas as pd
-from scipy.stats import ttest_ind
 from linear_eval import *
+from scipy.stats import ttest_ind
 
 
 def get_performance(model, dim, args):
@@ -128,9 +127,7 @@ def get_performance(model, dim, args):
         print("=" * 48)
         print(auc_scores)
         print(
-            "Five times mean task {} feature {} results: auc mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(auc_scores), np.std(auc_scores)
-            )
+            f"Five times mean task {args.task} feature {feature} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)
         return auc_scores
@@ -169,14 +166,10 @@ def get_performance(model, dim, args):
         print(maes)
         print(mapes)
         print(
-            "Five times mean task {} feature {} results: MAE mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(maes), np.std(maes)
-            )
+            f"Five times mean task {args.task} feature {feature} results: MAE mean {np.mean(maes):.3f} ± {np.std(maes):.3f}"
         )
         print(
-            "Five times mean task {} feature {} results: MAPE mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(mapes), np.std(mapes)
-            )
+            f"Five times mean task {args.task} feature {feature} results: MAPE mean {np.mean(mapes):.3f} ± {np.std(mapes):.3f}"
         )
         print("=" * 48)
         return maes
@@ -195,7 +188,6 @@ def test_2models(args):
 
 if __name__ == "__main__":
     import argparse
-    from pathlib import Path
 
     parser = argparse.ArgumentParser()
 

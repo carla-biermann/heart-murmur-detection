@@ -1,14 +1,12 @@
+import random
+
+import numpy as np
 import pytorch_lightning as pl
 import torch
-from efficientnet_pytorch import EfficientNet
-from torch.nn import functional as F
-from sklearn import metrics
 import torch.nn as nn
-import numpy as np
-from torchmetrics import AUROC
-from src.model.htsat.htsat import HTSATWrapper
-import random
 import torchaudio
+from torch.nn import functional as F
+from torchmetrics import AUROC
 
 
 class AudioClassifier(pl.LightningModule):
@@ -73,7 +71,7 @@ class AudioClassifier(pl.LightningModule):
                 nn.Linear(feat_dim, classes),
             )
         else:
-            raise NotImplementedError("head not supported: {}".format(head))
+            raise NotImplementedError(f"head not supported: {head}")
 
         weights_init(self.head)
         self.lr = lr
@@ -235,7 +233,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
                 nn.Linear(feat_dim, classes),
             )
         else:
-            raise NotImplementedError("head not supported: {}".format(head))
+            raise NotImplementedError(f"head not supported: {head}")
 
         weights_init(self.head)
         self.lr = lr
@@ -392,7 +390,7 @@ class AudioClassifierCLAP(pl.LightningModule):
                 nn.Linear(feat_dim, classes),
             )
         else:
-            raise NotImplementedError("head not supported: {}".format(head))
+            raise NotImplementedError(f"head not supported: {head}")
 
         weights_init(self.head)
         self.lr = lr
@@ -673,7 +671,7 @@ class LinearHead(pl.LightningModule):
                 nn.Linear(feat_dim, classes),
             )
         else:
-            raise NotImplementedError("head not supported: {}".format(head))
+            raise NotImplementedError(f"head not supported: {head}")
 
         weights_init(self.head)
         self.lr = lr
@@ -825,7 +823,7 @@ class LinearHeadR(pl.LightningModule):
                 nn.Linear(feat_dim, output_dim),
             )
         else:
-            raise NotImplementedError("head not supported: {}".format(head))
+            raise NotImplementedError(f"head not supported: {head}")
 
         # self.head = nn.Linear(dim_in, dim_out)
 

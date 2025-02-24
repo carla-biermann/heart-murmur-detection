@@ -1,7 +1,8 @@
-import os
-import glob as gb
 import argparse
 import collections
+import glob as gb
+import os
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
@@ -115,10 +116,10 @@ def check_demographic(trait="label"):
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
     sound_dir_loc_subset = np.load(feature_dir + "sound_dir_loc_subset.npy")

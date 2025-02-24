@@ -1,8 +1,10 @@
-import glob as gb
 import argparse
+import glob as gb
+import os
+
 import numpy as np
 from tqdm import tqdm
-import os
+
 from src.util import get_entire_signal_librosa
 
 data_dir = "datasets/SSBPR/"
@@ -34,10 +36,10 @@ def preprocess_split():
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")

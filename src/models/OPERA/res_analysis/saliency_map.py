@@ -1,15 +1,13 @@
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import matplotlib
-import matplotlib.pyplot as plt
-import torch
-from src.model.models_mae import mae_vit_small
-from src.model.models_cola import Cola
-from src.util import train_test_split_from_list
-from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
+
+from src.model.models_cola import Cola
+from src.model.models_mae import mae_vit_small
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -118,16 +116,9 @@ def linear_evaluation_nosemic(
     modality="breath",
     head="linear",
 ):
-    from sklearn.preprocessing import StandardScaler
-    import pandas as pd
     from src.util import (
         get_split_signal_librosa,
-        pre_process_audio_mel_t,
-        split_pad_sample,
-        decide_droplast,
-        get_entire_signal_librosa,
     )
-    from tqdm import tqdm
 
     print("*" * 48)
     print(
@@ -256,16 +247,12 @@ def linear_evaluation_mmlung(
     label="FVC",
     head="linear",
 ):
-    from sklearn.preprocessing import StandardScaler
     import pandas as pd
+    from tqdm import tqdm
+
     from src.util import (
         get_split_signal_librosa,
-        pre_process_audio_mel_t,
-        split_pad_sample,
-        decide_droplast,
-        get_entire_signal_librosa,
     )
-    from tqdm import tqdm
 
     print("*" * 48)
     print(
@@ -555,14 +542,12 @@ def linear_evaluation_coviduk(
 ):
     print("*" * 48)
     print(
-        "training dataset covidUK of {} and using feature extracted by {} with l2_strength {} lr {}  head".format(
-            modality, use_feature, l2_strength, lr, head
-        )
+        f"training dataset covidUK of {modality} and using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr}  head"
     )
 
     feature_dir = "feature/coviduk_eval/"
 
-    y_label = np.load(feature_dir + "label_{}.npy".format(modality))
+    y_label = np.load(feature_dir + f"label_{modality}.npy")
 
     x_data = np.load(feature_dir + f"spectrogram_pad8_{modality}.npy")
 

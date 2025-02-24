@@ -29,15 +29,10 @@
 
 """Compute input examples for VGGish from audio waveform."""
 
-import numpy as np
-
 # import resampy
-
-
 import mel_features
-
+import numpy as np
 import vggish_params
-
 
 try:
     import soundfile as sf

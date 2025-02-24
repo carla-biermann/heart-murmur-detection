@@ -5,8 +5,8 @@ Created on Mon May  6 10:38:07 2024
 @author: xiato
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.stats import rankdata
 
 data = """0.550 ± 0.015	0.580 ± 0.001	0.549 ± 0.001	0.565 ± 0.001	0.586 ± 0.008	0.551 ± 0.010	0.605 ± 0.001

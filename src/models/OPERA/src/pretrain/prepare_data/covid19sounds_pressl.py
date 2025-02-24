@@ -1,8 +1,10 @@
-import glob as gb
 import argparse
+import glob as gb
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
 from src.util import get_entire_signal_librosa
 
 # for pretraining
@@ -57,7 +59,7 @@ def preprocess_spectrogram_SSL(modality="breath", input_sec=8):
                     "datasets/covid19-sounds/covid19_data_0426",
                     userID,
                     folder,
-                    "*{}*.wav".format(modality),
+                    f"*{modality}*.wav",
                 ]
             )
             file_list = gb.glob(file_loc)

@@ -87,25 +87,17 @@ Usage:
 
 from __future__ import print_function
 
-
 from random import shuffle
 
-
 import numpy as np
-
 import tensorflow.compat.v1 as tf
 
 tf.disable_v2_behavior()
 
 import tf_slim as slim
-
-
 import vggish_input
-
 import vggish_params
-
 import vggish_slim
-
 
 flags = tf.app.flags
 

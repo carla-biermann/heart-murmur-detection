@@ -1,9 +1,10 @@
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import matplotlib
-import matplotlib.pyplot as plt
 import torch
+
 from src.model.models_mae import mae_vit_small
 
 encoder_path = "cks/model/encoder-operaGT.ckpt"

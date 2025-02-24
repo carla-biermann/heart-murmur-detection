@@ -1,12 +1,9 @@
-import glob as gb
 import argparse
+import os
+
 import librosa
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
-
-from os.path import exists
-import os
 
 data_dir = "datasets/nosemic/audio/"
 meta_dir = "datasets/nosemic/"
@@ -30,10 +27,10 @@ def process_label():
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
     sound_dir_loc = [data_dir + file for file in sorted(os.listdir(data_dir))]

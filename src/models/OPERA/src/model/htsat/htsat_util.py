@@ -5,14 +5,13 @@
 # below codes are based and referred from https://github.com/microsoft/Swin-Transformer
 # Swin Transformer for Computer Vision: https://arxiv.org/pdf/2103.14030.pdf
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from itertools import repeat
 import collections.abc
 import math
 import warnings
+from itertools import repeat
 
+import torch
+import torch.nn as nn
 from torch.nn.init import _calculate_fan_in_and_fan_out
 
 

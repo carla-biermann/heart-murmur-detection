@@ -1,25 +1,27 @@
 from __future__ import annotations
 
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
-import random
-import torchaudio
+import argparse
 import collections
+import math
+import os
+import random
 import re
+import sys
+
 import numpy as np
+import torch
+import torchaudio
+import torchaudio.transforms as T
+import yaml
+from huggingface_hub.file_download import hf_hub_download
 from transformers import AutoTokenizer, logging
+
 from .models.clap import CLAP
 from .models.mapper import get_clapcap
-import math
-import torchaudio.transforms as T
-import os
-import torch
-import argparse
-import yaml
-import sys
-from huggingface_hub.file_download import hf_hub_download
 
 logging.set_verbosity_error()
 
@@ -83,7 +85,7 @@ class CLAPWrapper:
                         args.__dict__[k] = v
                     else:
                         sys.stderr.write(
-                            "Ignored unknown parameter {} in yaml.\n".format(k)
+                            f"Ignored unknown parameter {k} in yaml.\n"
                         )
             else:
                 for k, v in yml_config.items():

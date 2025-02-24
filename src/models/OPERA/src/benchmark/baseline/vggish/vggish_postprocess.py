@@ -30,8 +30,6 @@
 """Post-process embeddings from VGGish."""
 
 import numpy as np
-
-
 import vggish_params
 
 

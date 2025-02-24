@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 participant_file = "audio_metadata.csv"
 split_file = "train_test_splits.csv"

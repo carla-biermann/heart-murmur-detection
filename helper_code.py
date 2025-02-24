@@ -3,7 +3,12 @@
 # Do *not* edit this script.
 # These are helper functions that you can use with your code.
 
-import os, numpy as np, scipy as sp, scipy.io, scipy.io.wavfile
+import os
+
+import numpy as np
+import scipy as sp
+import scipy.io
+import scipy.io.wavfile
 
 
 # Check if a variable is a number or represents a number.
@@ -267,7 +272,7 @@ def sanitize_scalar_value(x):
 # Save Challenge outputs.
 def save_challenge_outputs(filename, patient_id, classes, labels, probabilities):
     # Format Challenge outputs.
-    patient_string = "#{}".format(patient_id)
+    patient_string = f"#{patient_id}"
     class_string = ",".join(str(c) for c in classes)
     label_string = ",".join(str(l) for l in labels)
     probabilities_string = ",".join(str(p) for p in probabilities)

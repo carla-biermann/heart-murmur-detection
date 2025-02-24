@@ -1,12 +1,11 @@
-import glob as gb
 import argparse
 import collections
-import numpy as np
-from sklearn.model_selection import train_test_split
-import csv
+import glob as gb
 import json
 import os
 
+import numpy as np
+from sklearn.model_selection import train_test_split
 
 # Directories
 data_dir = "datasets/PASCAL/"
@@ -38,7 +37,7 @@ def read_data(dataset):
         int_to_label = {0: "normal", 1: "murmur", 2: "extrastole"}
         dirs = dirs_B
     else:
-        raise ValueError(f"Please input a valid value for dataset: A or B.")
+        raise ValueError("Please input a valid value for dataset: A or B.")
 
     # Save mappings
     with open(feature_dir + "label_to_int.json", "w") as f:
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     elif args.dataset == "B":
         feature_dir = "feature/pascal_eval_B/"
     else:
-        raise ValueError(f"Please input a valid value for dataset: A or B.")
+        raise ValueError("Please input a valid value for dataset: A or B.")
 
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)

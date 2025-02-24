@@ -18,6 +18,7 @@ from pathlib import Path
 
 import torch
 import torch.distributed as dist
+
 # from torch._six import inf
 # from six import inf
 
@@ -105,13 +106,13 @@ class MetricLogger(object):
         if attr in self.__dict__:
             return self.__dict__[attr]
         raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, attr)
+            f"'{type(self).__name__}' object has no attribute '{attr}'"
         )
 
     def __str__(self):
         loss_str = []
         for name, meter in self.meters.items():
-            loss_str.append("{}: {}".format(name, str(meter)))
+            loss_str.append(f"{name}: {str(meter)}")
         return self.delimiter.join(loss_str)
 
     def synchronize_between_processes(self):
@@ -177,9 +178,7 @@ class MetricLogger(object):
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print(
-            "{} Total time: {} ({:.4f} s / it)".format(
-                header, total_time_str, total_time / len(iterable)
-            )
+            f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)"
         )
 
 
@@ -194,7 +193,7 @@ def setup_for_distributed(is_master):
         force = force or (get_world_size() > 8)
         if is_master or force:
             now = datetime.datetime.now().time()
-            builtin_print("[{}] ".format(now), end="")  # print with time stamp
+            builtin_print(f"[{now}] ", end="")  # print with time stamp
             builtin_print(*args, **kwargs)
 
     builtins.print = print
@@ -260,9 +259,7 @@ def init_distributed_mode(args):
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"
     print(
-        "| distributed init (rank {}): {}, gpu {}".format(
-            args.rank, args.dist_url, args.gpu
-        ),
+        f"| distributed init (rank {args.rank}): {args.dist_url}, gpu {args.gpu}",
         flush=True,
     )
     torch.distributed.init_process_group(

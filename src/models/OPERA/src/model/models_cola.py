@@ -1,10 +1,12 @@
+import random
+
+import numpy as np
 import pytorch_lightning as pl
 import torch
 from efficientnet_pytorch import EfficientNet
 from torch.nn import functional as F
-import numpy as np
+
 from src.model.htsat.htsat import HTSATWrapper
-import random
 
 
 class Encoder(torch.nn.Module):
@@ -253,8 +255,8 @@ class ColaMD(pl.LightningModule):
         _, predicted = torch.max(y_hat, 1)
         acc = (predicted == y).double().mean()
 
-        self.log("{}_loss".format(mode), loss, batch_size=self.batch_size)
-        self.log("{}_acc".format(mode), acc, batch_size=self.batch_size)
+        self.log(f"{mode}_loss", loss, batch_size=self.batch_size)
+        self.log(f"{mode}_acc", acc, batch_size=self.batch_size)
         return loss
 
     def training_step(self, x, batch_idx):

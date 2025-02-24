@@ -4,9 +4,10 @@ Created on Tue May  7 10:12:40 2024
 
 """
 
-import pandas as pd
-import matplotlib.pyplot as plt
 import os
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 if not os.path.exists("fig/training/"):
     os.makedirs("fig/training/")

@@ -4,13 +4,15 @@
 # https://github.com/evelyn0414/OPERA
 
 import os
+
 import numpy as np
 import torch
+from huggingface_hub.file_download import hf_hub_download
+from tqdm import tqdm
+
 from src.model.models_cola import Cola
 from src.model.models_mae import mae_vit_small
-from huggingface_hub.file_download import hf_hub_download
-from src.util import get_split_signal_librosa, get_entire_signal_librosa
-from tqdm import tqdm
+from src.util import get_entire_signal_librosa, get_split_signal_librosa
 
 # Set device for GPU usage
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

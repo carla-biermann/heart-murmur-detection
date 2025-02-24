@@ -1,9 +1,10 @@
 import argparse
+import os
+from os.path import exists
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from os.path import exists
-import os
 
 data_dir = "datasets/coughvid/"
 feature_dir = "feature/coughvid_eval/"
@@ -75,20 +76,20 @@ def preprocess_label(label="covid"):
         else:
             split.append("test")
 
-    np.save(feature_dir + "label_{}.npy".format(label), label_list)
-    np.save(feature_dir + "sound_dir_loc_{}.npy".format(label), filename_list)
-    np.save(feature_dir + "split_{}.npy".format(label), split)
+    np.save(feature_dir + f"label_{label}.npy", label_list)
+    np.save(feature_dir + f"sound_dir_loc_{label}.npy", filename_list)
+    np.save(feature_dir + f"split_{label}.npy", split)
 
 
 def extract_and_save_embeddings_baselines(label, feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(label))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{label}.npy")
 
     if feature == "opensmile":
         opensmile_features = []
@@ -96,23 +97,23 @@ def extract_and_save_embeddings_baselines(label, feature="opensmile"):
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
         np.save(
-            feature_dir + "opensmile_feature_{}.npy".format(label),
+            feature_dir + f"opensmile_feature_{label}.npy",
             np.array(opensmile_features),
         )
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
         np.save(
-            feature_dir + "vggish_feature_{}.npy".format(label), np.array(vgg_features)
+            feature_dir + f"vggish_feature_{label}.npy", np.array(vgg_features)
         )
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
         np.save(
-            feature_dir + "clap_feature_{}.npy".format(label), np.array(clap_features)
+            feature_dir + f"clap_feature_{label}.npy", np.array(clap_features)
         )
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
         np.save(
-            feature_dir + "audiomae_feature_{}.npy".format(label),
+            feature_dir + f"audiomae_feature_{label}.npy",
             np.array(audiomae_feature),
         )
 
@@ -122,13 +123,13 @@ def extract_and_save_embeddings(
 ):
     from src.benchmark.model_util import extract_opera_feature
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(label))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{label}.npy")
     opera_features = extract_opera_feature(
         sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
     )
     feature += str(dim)
     np.save(
-        feature_dir + feature + "_feature_{}.npy".format(label),
+        feature_dir + feature + f"_feature_{label}.npy",
         np.array(opera_features),
     )
 

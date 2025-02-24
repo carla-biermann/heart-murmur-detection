@@ -1,11 +1,10 @@
-import os
-import csv
 import argparse
-import librosa
+import csv
+import os
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
 
 data_dir = "datasets/covidUK/"
 feature_dir = "feature/coviduk_eval/"
@@ -31,14 +30,14 @@ def get_user_id_from_file(modality):
 
 def process_label(modality="exhalation"):
     train_files = np.load(
-        data_dir + "{}_training_files_downsample.npy".format(modality),
+        data_dir + f"{modality}_training_files_downsample.npy",
         allow_pickle=True,
     )
     val_files = np.load(
-        data_dir + "{}_val_files_downsample.npy".format(modality), allow_pickle=True
+        data_dir + f"{modality}_val_files_downsample.npy", allow_pickle=True
     )
     test_files = np.load(
-        data_dir + "{}_testing_files_downsample.npy".format(modality), allow_pickle=True
+        data_dir + f"{modality}_testing_files_downsample.npy", allow_pickle=True
     )
 
     all_files = list(train_files) + list(val_files) + list(test_files)
@@ -73,20 +72,20 @@ def process_label(modality="exhalation"):
         else:
             split.append("test")
     print(len(filename_list))
-    np.save(feature_dir + "label_{}.npy".format(modality), label_list)
-    np.save(feature_dir + "sound_dir_loc_{}.npy".format(modality), filename_list)
-    np.save(feature_dir + "split_{}.npy".format(modality), split)
+    np.save(feature_dir + f"label_{modality}.npy", label_list)
+    np.save(feature_dir + f"sound_dir_loc_{modality}.npy", filename_list)
+    np.save(feature_dir + f"split_{modality}.npy", split)
 
 
 def extract_and_save_embeddings_baselines(modality="exhalation", feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(modality))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
 
     if feature == "opensmile":
         opensmile_features = []
@@ -94,25 +93,25 @@ def extract_and_save_embeddings_baselines(modality="exhalation", feature="opensm
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
         np.save(
-            feature_dir + "opensmile_feature_{}.npy".format(modality),
+            feature_dir + f"opensmile_feature_{modality}.npy",
             np.array(opensmile_features),
         )
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
         np.save(
-            feature_dir + "vggish_feature_{}.npy".format(modality),
+            feature_dir + f"vggish_feature_{modality}.npy",
             np.array(vgg_features),
         )
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
         np.save(
-            feature_dir + "clap_feature_{}.npy".format(modality),
+            feature_dir + f"clap_feature_{modality}.npy",
             np.array(clap_features),
         )
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
         np.save(
-            feature_dir + "audiomae_feature_{}.npy".format(modality),
+            feature_dir + f"audiomae_feature_{modality}.npy",
             np.array(audiomae_feature),
         )
 
@@ -122,13 +121,13 @@ def extract_and_save_embeddings(
 ):
     from src.benchmark.model_util import extract_opera_feature
 
-    sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(modality))
+    sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
     opera_features = extract_opera_feature(
         sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
     )
     feature += str(dim)
     np.save(
-        feature_dir + feature + "_feature_{}.npy".format(modality),
+        feature_dir + feature + f"_feature_{modality}.npy",
         np.array(opera_features),
     )
 

@@ -1,11 +1,7 @@
-import logging
-import math
-from copy import deepcopy
-from typing import Tuple, Optional, List, Union, Any, Type
+from typing import Any, Optional, Tuple, Type
 
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
 
 from .layers import DropPath, to_2tuple
 

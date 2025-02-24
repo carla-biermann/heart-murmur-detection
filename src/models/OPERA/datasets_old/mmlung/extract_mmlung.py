@@ -1,8 +1,8 @@
-import pandas as pd
-import numpy as np
 from glob import glob
-from os.path import splitext, basename, exists
-from sklearn.preprocessing import minmax_scale
+from os.path import basename, exists, splitext
+
+import numpy as np
+import pandas as pd
 import xlrd
 from openpyxl.utils.cell import coordinate_to_tuple
 
@@ -95,7 +95,7 @@ def extract_targets(selected_options):
             get_target_columns, axis=1, args=(cell_coordinates,), result_type="expand"
         )
 
-        print(f"Targets extracted")
+        print("Targets extracted")
 
 
 extract_targets(["FVC", "FEV1", "FEV1/FVC"])

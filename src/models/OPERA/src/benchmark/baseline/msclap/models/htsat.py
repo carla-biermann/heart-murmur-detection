@@ -6,24 +6,21 @@
 # Swin Transformer for Computer Vision: https://arxiv.org/pdf/2103.14030.pdf
 
 
+import collections.abc
 import math
 import random
+import warnings
+from itertools import repeat
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
-
-from torchlibrosa.stft import Spectrogram, LogmelFilterBank
-from torchlibrosa.augmentation import SpecAugmentation
-
-from itertools import repeat
-
-from .pytorch_utils import do_mixup, interpolate
-from . import config
-
-import collections.abc
-import warnings
-
 from torch.nn.init import _calculate_fan_in_and_fan_out
+from torchlibrosa.augmentation import SpecAugmentation
+from torchlibrosa.stft import LogmelFilterBank, Spectrogram
+
+from . import config
+from .pytorch_utils import do_mixup, interpolate
 
 
 def _ntuple(n):

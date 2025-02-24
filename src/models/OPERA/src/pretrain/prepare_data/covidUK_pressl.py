@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import argparse
+import os
+
 import numpy as np
 from tqdm import tqdm
+
 from src.util import get_entire_signal_librosa
-import os
 
 
 ### for pretraining

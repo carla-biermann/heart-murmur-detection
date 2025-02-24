@@ -1,15 +1,15 @@
-import glob as gb
 import argparse
+import glob as gb
+import os
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import os
-
 
 from src.util import (
     get_annotations,
-    get_individual_cycles_librosa,
     get_entire_signal_librosa,
+    get_individual_cycles_librosa,
 )
 
 labels_data = pd.read_csv(

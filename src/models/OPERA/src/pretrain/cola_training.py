@@ -6,16 +6,18 @@
 
 
 import argparse
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from lightning.pytorch.utilities import CombinedLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CSVLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
-from lightning.pytorch.utilities import CombinedLoader
+
+from src.model.models_cola import ColaMD
 from src.util import random_crop, random_mask, random_multiply
-from src.model.models_cola import Cola, ColaMD
 
 
 def combine_dataloaders(dataloaders, train=False):
@@ -130,9 +132,7 @@ def train_multiple_data(
             modality = dt[5:]
             filenames = list(
                 np.load(
-                    "datasets/covid19-sounds/SSL_entireaudio_filenames_{}.npy".format(
-                        modality
-                    )
+                    f"datasets/covid19-sounds/SSL_entireaudio_filenames_{modality}.npy"
                 )
             )
 

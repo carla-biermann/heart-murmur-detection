@@ -8,24 +8,22 @@
 # timm: https://github.com/rwightman/pytorch-image-models/tree/master/timm
 # DeiT: https://github.com/facebookresearch/deit
 # --------------------------------------------------------
-import pytorch_lightning as pl
+import random
 from functools import partial
-from json import encoder
 
+import numpy as np
+import pytorch_lightning as pl
+import timm.models.vision_transformer
 import torch
 import torch.nn as nn
-import numpy as np
+from timm.models.swin_transformer import SwinTransformerBlock
+from timm.models.vision_transformer import Block
+
+from src.model.mae_utils.patch_embed import PatchEmbed_new, PatchEmbed_org
 from src.model.mae_utils.pos_embed import (
     get_2d_sincos_pos_embed,
     get_2d_sincos_pos_embed_flexible,
-    get_1d_sincos_pos_embed_from_grid,
 )
-from src.model.mae_utils.misc import concat_all_gather
-from src.model.mae_utils.patch_embed import PatchEmbed_new, PatchEmbed_org
-import timm.models.vision_transformer
-from timm.models.swin_transformer import SwinTransformerBlock
-from timm.models.vision_transformer import Block
-import random
 
 
 class MaskedAutoencoderViT(pl.LightningModule):

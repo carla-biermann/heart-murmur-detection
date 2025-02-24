@@ -1,8 +1,10 @@
 import os
+
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+
 from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
 from src.benchmark.other_eval.finetuning import AudioDataset
 from src.util import plot_tsne_individual
@@ -23,7 +25,7 @@ def visualize_embedding_multiple(
             modality = dt[5:]
             filenames = list(
                 np.load(
-                    "datasets/covid/SSL_entireaudio_filenames_{}.npy".format(modality)
+                    f"datasets/covid/SSL_entireaudio_filenames_{modality}.npy"
                 )
             )
 

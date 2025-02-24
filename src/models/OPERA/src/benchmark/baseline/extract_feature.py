@@ -3,17 +3,15 @@
 # Towards Open Respiratory Acoustic Foundation Models: Pretraining and Benchmarking
 # https://github.com/evelyn0414/OPERA
 
-import numpy as np
-import librosa
 import os
-import json
-import glob as gb
-from tqdm import tqdm
-import torch
-import torchaudio
+
+import librosa
+import numpy as np
 import opensmile
 import requests
-
+import torch
+import torchaudio
+from tqdm import tqdm
 
 SR = 22050  # sample rate
 
@@ -30,14 +28,12 @@ def extract_opensmile_features(audio_file):
 
 
 def extract_vgg_feature(sound_dir_loc, from_signal=False):
-    import tensorflow as tf
-    import urllib
     import sys
 
+    import tensorflow as tf
+
     sys.path.append("./src/benchmark/baseline/vggish")
-    from src.benchmark.baseline.vggish import vggish_input
-    from src.benchmark.baseline.vggish import vggish_params
-    from src.benchmark.baseline.vggish import vggish_slim
+    from src.benchmark.baseline.vggish import vggish_input, vggish_params, vggish_slim
 
     SR_VGG = 16000  # VGG pretrained model sample rate
     x_data = []
@@ -110,8 +106,8 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10):
     trim_tail: drop last residual segment if too short, shorter than one half of input_sec
     """
     from tqdm import tqdm
+
     from src.benchmark.baseline.audioMAE.models_mae import (
-        mae_vit_small,
         vit_base_patch16,
     )
 

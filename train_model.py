@@ -9,6 +9,7 @@
 # where 'data' is a folder containing the Challenge data and 'model' is a folder for saving your model.
 
 import sys
+
 from helper_code import is_integer
 from team_code import train_challenge_model
 

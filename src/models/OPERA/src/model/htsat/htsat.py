@@ -8,25 +8,23 @@
 
 import math
 import random
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
-
-from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
+from torchlibrosa.stft import LogmelFilterBank, Spectrogram
 
-from itertools import repeat
-from typing import List
+from . import config
 from .htsat_util import (
-    PatchEmbed,
-    Mlp,
     DropPath,
-    trunc_normal_,
-    to_2tuple,
+    Mlp,
+    PatchEmbed,
     do_mixup,
     interpolate,
+    to_2tuple,
+    trunc_normal_,
 )
-from . import config
 
 # below codes are based and referred from https://github.com/microsoft/Swin-Transformer
 # Swin Transformer for Computer Vision: https://arxiv.org/pdf/2103.14030.pdf

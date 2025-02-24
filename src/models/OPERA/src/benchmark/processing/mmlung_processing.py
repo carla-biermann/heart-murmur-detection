@@ -1,16 +1,10 @@
-import glob as gb
 import argparse
+import os
+
 import librosa
-import collections
 import numpy as np
-from sklearn.model_selection import train_test_split
 import pandas as pd
 from tqdm import tqdm
-import random
-import scipy.signal as sg
-import soundfile
-import os
-from os.path import exists
 
 data_dir = "datasets/mmlung/Trimmed_Data_from_phone/"
 meta_dir = "datasets/mmlung/"
@@ -33,10 +27,10 @@ def process_label():
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
     from src.benchmark.baseline.extract_feature import (
+        extract_audioMAE_feature,
+        extract_clap_feature,
         extract_opensmile_features,
         extract_vgg_feature,
-        extract_clap_feature,
-        extract_audioMAE_feature,
     )
 
     df = pd.read_excel(meta_dir + "All_path.xlsx")

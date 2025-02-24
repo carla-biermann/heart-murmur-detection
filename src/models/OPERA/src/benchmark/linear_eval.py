@@ -1,18 +1,18 @@
-import json
-from glob import glob
+import collections
+
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import wandb
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
-from src.util import train_test_split_from_list, downsample_balanced_dataset
-from src.model.models_eval import LinearHead, LinearHeadR
-import collections
 from tqdm import tqdm
-import wandb
+
+from src.model.models_eval import LinearHead, LinearHeadR
+from src.util import downsample_balanced_dataset, train_test_split_from_list
 
 
 class FeatureDataset(torch.utils.data.Dataset):
@@ -87,7 +87,7 @@ def linear_evaluation_covid19sounds(
     epochs=64,
 ):
     print(
-        "linear evaluation ({}) of task".format(head),
+        f"linear evaluation ({head}) of task",
         task,
         "with feature set",
         use_feature,
@@ -103,7 +103,7 @@ def linear_evaluation_covid19sounds(
     folder = folders[task]
 
     x_data = np.load(
-        folder + use_feature + "_feature_{}.npy".format(modality)
+        folder + use_feature + f"_feature_{modality}.npy"
     ).squeeze()
     y_label = np.load(folder + "labels.npy")
     y_set = np.load(folder + "data_split.npy")
@@ -190,7 +190,7 @@ def linear_evaluation_covid19sounds(
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
-        "finished training linear evaluation ({}) of task".format(head),
+        f"finished training linear evaluation ({head}) of task",
         task,
         "with feature set",
         use_feature,
@@ -452,9 +452,7 @@ def linear_evaluation_coswara(
 ):
     print("*" * 48)
     print(
-        "training dataset coswara of task {} and modality {} using feature extracted by {} with l2_strength {} lr {} head {}".format(
-            label, modality, use_feature, l2_strength, lr, head
-        )
+        f"training dataset coswara of task {label} and modality {modality} using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr} head {head}"
     )
 
     feature_dir = "feature/coswara_eval/"
@@ -462,10 +460,10 @@ def linear_evaluation_coswara(
     broad_modality = modality.split("-")[0]
     labels = np.load(
         feature_dir
-        + "{}_aligned_{}_label_{}.npy".format(broad_modality, label, modality)
+        + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
     )
     features = np.load(
-        feature_dir + use_feature + "_feature_{}_{}.npy".format(modality, label)
+        feature_dir + use_feature + f"_feature_{modality}_{label}.npy"
     ).squeeze()
     print(collections.Counter(labels))
 
@@ -474,7 +472,7 @@ def linear_evaluation_coswara(
     if map_google:
         if "cough" not in modality:
             raise NotImplementedError("not supported")
-        split = np.load(feature_dir + "google_{}_{}_split.npy".format(label, modality))
+        split = np.load(feature_dir + f"google_{label}_{modality}_split.npy")
         X_train, X_test, y_train, y_test = train_test_split_from_list(
             features, labels, split
         )
@@ -689,18 +687,16 @@ def linear_evaluation_coughvid(
 ):
     print("*" * 48)
     print(
-        "training dataset coughvid of task {} and using feature extracted by {} with l2_strength {} lr {}  head".format(
-            label, use_feature, l2_strength, lr, head
-        )
+        f"training dataset coughvid of task {label} and using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr}  head"
     )
 
     feature_dir = "feature/coughvid_eval/"
 
-    y_set = np.load(feature_dir + "split_{}.npy".format(label))
-    y_label = np.load(feature_dir + "label_{}.npy".format(label))
+    y_set = np.load(feature_dir + f"split_{label}.npy")
+    y_label = np.load(feature_dir + f"label_{label}.npy")
     print(collections.Counter(y_label))
     x_data = np.load(
-        feature_dir + use_feature + "_feature_{}.npy".format(label)
+        feature_dir + use_feature + f"_feature_{label}.npy"
     ).squeeze()
 
     if use_feature == "vggish":
@@ -785,9 +781,7 @@ def linear_evaluation_coughvid(
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
-        "finished training dataset coughvid of task {} and using feature extracted by {} with l2_strength {} lr {} ".format(
-            label, use_feature, l2_strength, lr
-        )
+        f"finished training dataset coughvid of task {label} and using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr} "
     )
     return auc
 
@@ -803,18 +797,16 @@ def linear_evaluation_coviduk(
 ):
     print("*" * 48)
     print(
-        "training dataset covidUK of {} and using feature extracted by {} with l2_strength {} lr {}  head".format(
-            modality, use_feature, l2_strength, lr, head
-        )
+        f"training dataset covidUK of {modality} and using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr}  head"
     )
 
     feature_dir = "feature/coviduk_eval/"
 
-    y_set = np.load(feature_dir + "split_{}.npy".format(modality))
-    y_label = np.load(feature_dir + "label_{}.npy".format(modality))
+    y_set = np.load(feature_dir + f"split_{modality}.npy")
+    y_label = np.load(feature_dir + f"label_{modality}.npy")
     print(collections.Counter(y_label))
     x_data = np.load(
-        feature_dir + use_feature + "_feature_{}.npy".format(modality)
+        feature_dir + use_feature + f"_feature_{modality}.npy"
     ).squeeze()
 
     if use_feature == "vggish":
@@ -898,9 +890,7 @@ def linear_evaluation_coviduk(
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
-        "finished training dataset covidUK of {} and using feature extracted by {} with l2_strength {} lr {}  head".format(
-            modality, use_feature, l2_strength, lr, head
-        )
+        f"finished training dataset covidUK of {modality} and using feature extracted by {use_feature} with l2_strength {l2_strength} lr {lr}  head"
     )
     return auc
 
@@ -1455,7 +1445,6 @@ def linear_evaluation_zchsound(
 
 if __name__ == "__main__":
     import argparse
-    from pathlib import Path
 
     parser = argparse.ArgumentParser()
 
@@ -1600,9 +1589,7 @@ if __name__ == "__main__":
         print("=" * 48)
         print(auc_scores)
         print(
-            "Five times mean task {} feature {} results: auc mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(auc_scores), np.std(auc_scores)
-            )
+            f"Five times mean task {args.task} feature {feature} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)
     else:
@@ -1640,13 +1627,9 @@ if __name__ == "__main__":
         print(maes)
         print(mapes)
         print(
-            "Five times mean task {} feature {} results: MAE mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(maes), np.std(maes)
-            )
+            f"Five times mean task {args.task} feature {feature} results: MAE mean {np.mean(maes):.3f} ± {np.std(maes):.3f}"
         )
         print(
-            "Five times mean task {} feature {} results: MAPE mean {:.3f} ± {:.3f}".format(
-                args.task, feature, np.mean(mapes), np.std(mapes)
-            )
+            f"Five times mean task {args.task} feature {feature} results: MAPE mean {np.mean(mapes):.3f} ± {np.std(mapes):.3f}"
         )
         print("=" * 48)

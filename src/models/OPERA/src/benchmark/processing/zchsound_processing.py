@@ -1,11 +1,13 @@
-import glob as gb
 import argparse
 import collections
-import numpy as np
-from sklearn.model_selection import train_test_split
 import csv
+import glob as gb
 import json
 import os
+
+import numpy as np
+from sklearn.model_selection import train_test_split
+
 from src.benchmark.model_util import extract_opera_feature
 
 # Directories
