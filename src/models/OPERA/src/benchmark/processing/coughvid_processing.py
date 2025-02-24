@@ -10,29 +10,41 @@ feature_dir = "feature/coughvid_eval/"
 audio_dir = data_dir + "wav"
 if not os.path.exists(audio_dir):
     print(f"Folder not found: {audio_dir}, downloading the dataset")
-    os.system('sh datasets/coughvid/download_data.sh')
+    os.system("sh datasets/coughvid/download_data.sh")
     # raise FileNotFoundError(
     #     f"Folder not found: {audio_dir}, please download the dataset.")
 
 
 train_uuid = np.load(data_dir + "coughvid__train_uuids.npy", allow_pickle=True)
 val_uuid = np.load(data_dir + "coughvid__val_uuids.npy", allow_pickle=True)
-covid_test_uuid = np.load(
-    data_dir + "coughvid_covid_test_uuids.npy", allow_pickle=True)
+covid_test_uuid = np.load(data_dir + "coughvid_covid_test_uuids.npy", allow_pickle=True)
 gender_test_uuid = np.load(
-    data_dir + "coughvid_gender_test_uuids.npy", allow_pickle=True)
+    data_dir + "coughvid_gender_test_uuids.npy", allow_pickle=True
+)
 all_uuid = list(train_uuid) + list(val_uuid) + list(gender_test_uuid)
 
 
 def preprocess_label(label="covid"):
-    df = pd.read_csv(data_dir + 'metadata_compiled.csv', index_col="uuid")
-    df = df.replace(np.nan, '', regex=True)
+    df = pd.read_csv(data_dir + "metadata_compiled.csv", index_col="uuid")
+    df = df.replace(np.nan, "", regex=True)
     # df = df[df["gender"].str.contains("male")]
 
-    gender_label_dict = {"female": 1, "male": 0,
-                         "pnts": None, "Other": None, "other": None, '': None}
-    covid_label_dict = {"COVID-19": 1, "healthy": 0,
-                        "pnts": None, "Other": None, 'symptomatic': None, '': None}
+    gender_label_dict = {
+        "female": 1,
+        "male": 0,
+        "pnts": None,
+        "Other": None,
+        "other": None,
+        "": None,
+    }
+    covid_label_dict = {
+        "COVID-19": 1,
+        "healthy": 0,
+        "pnts": None,
+        "Other": None,
+        "symptomatic": None,
+        "": None,
+    }
 
     filename_list = []
     label_list = []
@@ -69,7 +81,12 @@ def preprocess_label(label="covid"):
 
 
 def extract_and_save_embeddings_baselines(label, feature="opensmile"):
-    from src.benchmark.baseline.extract_feature import extract_opensmile_features, extract_vgg_feature, extract_clap_feature, extract_audioMAE_feature
+    from src.benchmark.baseline.extract_feature import (
+        extract_opensmile_features,
+        extract_vgg_feature,
+        extract_clap_feature,
+        extract_audioMAE_feature,
+    )
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(label))
 
@@ -78,33 +95,45 @@ def extract_and_save_embeddings_baselines(label, feature="opensmile"):
         for file in tqdm(sound_dir_loc):
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
-        np.save(feature_dir + "opensmile_feature_{}.npy".format(label),
-                np.array(opensmile_features))
+        np.save(
+            feature_dir + "opensmile_feature_{}.npy".format(label),
+            np.array(opensmile_features),
+        )
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
-        np.save(feature_dir + "vggish_feature_{}.npy".format(label),
-                np.array(vgg_features))
+        np.save(
+            feature_dir + "vggish_feature_{}.npy".format(label), np.array(vgg_features)
+        )
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
-        np.save(feature_dir + "clap_feature_{}.npy".format(label),
-                np.array(clap_features))
+        np.save(
+            feature_dir + "clap_feature_{}.npy".format(label), np.array(clap_features)
+        )
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
-        np.save(feature_dir + "audiomae_feature_{}.npy".format(label),
-                np.array(audiomae_feature))
+        np.save(
+            feature_dir + "audiomae_feature_{}.npy".format(label),
+            np.array(audiomae_feature),
+        )
 
 
-def extract_and_save_embeddings(feature="operaCE", label="covid", input_sec=2, dim=1280):
+def extract_and_save_embeddings(
+    feature="operaCE", label="covid", input_sec=2, dim=1280
+):
     from src.benchmark.model_util import extract_opera_feature
+
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc_{}.npy".format(label))
     opera_features = extract_opera_feature(
-        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim)
+        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
+    )
     feature += str(dim)
-    np.save(feature_dir + feature + "_feature_{}.npy".format(label),
-            np.array(opera_features))
+    np.save(
+        feature_dir + feature + "_feature_{}.npy".format(label),
+        np.array(opera_features),
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrain", type=str, default="operaCE")
     parser.add_argument("--dim", type=int, default=1280)
@@ -127,5 +156,4 @@ if __name__ == '__main__':
             input_sec = args.min_len_cnn
         elif args.pretrain == "operaGT":
             input_sec = 8.18
-        extract_and_save_embeddings(
-            args.pretrain, args.label, input_sec, dim=args.dim)
+        extract_and_save_embeddings(args.pretrain, args.label, input_sec, dim=args.dim)

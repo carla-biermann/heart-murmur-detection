@@ -10,7 +10,8 @@ feature_dir = "feature/snoring_eval/"
 audio_dir = data_dir + "female"
 if not os.path.exists(audio_dir):
     raise FileNotFoundError(
-        f"Folder not found: {audio_dir}, please download the dataset.")
+        f"Folder not found: {audio_dir}, please download the dataset."
+    )
 
 
 def preprocess_split():
@@ -32,7 +33,12 @@ def preprocess_split():
 
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
-    from src.benchmark.baseline.extract_feature import extract_opensmile_features, extract_vgg_feature, extract_clap_feature, extract_audioMAE_feature
+    from src.benchmark.baseline.extract_feature import (
+        extract_opensmile_features,
+        extract_vgg_feature,
+        extract_clap_feature,
+        extract_audioMAE_feature,
+    )
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
 
@@ -41,8 +47,7 @@ def extract_and_save_embeddings_baselines(feature="opensmile"):
         for file in tqdm(sound_dir_loc):
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
-        np.save(feature_dir + "opensmile_feature.npy",
-                np.array(opensmile_features))
+        np.save(feature_dir + "opensmile_feature.npy", np.array(opensmile_features))
 
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
@@ -52,35 +57,37 @@ def extract_and_save_embeddings_baselines(feature="opensmile"):
         np.save(feature_dir + "clap_feature.npy", np.array(clap_features))
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
-        np.save(feature_dir + "audiomae_feature.npy",
-                np.array(audiomae_feature))
+        np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
 
 
 def process_spectrogram(input_sec=2):
     if os.path.exists(feature_dir + "spec.npz"):
         print("spectrogram already exist")
         return
-    
+
     audio_images = []
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     for file in tqdm(sound_dir_loc):
         data = get_entire_signal_librosa(
-            "", file[:-4], spectrogram=True, pad=True, input_sec=input_sec)
+            "", file[:-4], spectrogram=True, pad=True, input_sec=input_sec
+        )
         audio_images.append(data)
     np.savez(feature_dir + "spec.npz", *audio_images)
 
 
 def extract_and_save_embeddings(feature="operaCE", dim=1280):
     from src.benchmark.model_util import extract_opera_feature
+
     audio_images = np.load(feature_dir + "spec.npz")
     audio_images = [audio_images[f] for f in audio_images.files]
     opera_features = extract_opera_feature(
-        audio_images,  pretrain=feature, from_spec=True, dim=dim)
+        audio_images, pretrain=feature, from_spec=True, dim=dim
+    )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrain", type=str, default="operaCE")
     parser.add_argument("--dim", type=int, default=1280)

@@ -2,7 +2,8 @@ import argparse
 import yaml
 import sys
 
-def read_config_as_args(config_path,args=None,is_config_str=False):
+
+def read_config_as_args(config_path, args=None, is_config_str=False):
     return_dict = {}
 
     if config_path is not None:
@@ -17,7 +18,9 @@ def read_config_as_args(config_path,args=None,is_config_str=False):
                 if k in args.__dict__:
                     args.__dict__[k] = v
                 else:
-                    sys.stderr.write("Ignored unknown parameter {} in yaml.\n".format(k))
+                    sys.stderr.write(
+                        "Ignored unknown parameter {} in yaml.\n".format(k)
+                    )
         else:
             for k, v in yml_config.items():
                 return_dict[k] = v

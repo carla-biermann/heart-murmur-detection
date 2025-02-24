@@ -18,14 +18,14 @@ feature_dir = "feature/copd_eval/"
 
 if not os.path.exists(audio_dir):
     print(f"Folder not found: {audio_dir}, downloading the dataset")
-    os.system('sh datasets/copd/download_data.sh')
+    os.system("sh datasets/copd/download_data.sh")
     # raise FileNotFoundError(
     #     f"Folder not found: {audio_dir}, please download the dataset.")
 
 
 def get_annotaion_from_csv(path):
     data = {}
-    with open(path, 'r') as csvfile:
+    with open(path, "r") as csvfile:
         csvreader = csv.reader(csvfile)
         header = next(csvreader)  # Skip the header row
         for row in csvreader:
@@ -53,8 +53,7 @@ def preprocess_split():
     print(collections.Counter(y_val))
     print(collections.Counter(y_test))
 
-    sound_dir_loc = np.array(
-        gb.glob(data_dir + "RespiratoryDatabase@TR/*.wav"))
+    sound_dir_loc = np.array(gb.glob(data_dir + "RespiratoryDatabase@TR/*.wav"))
     np.save(feature_dir + "sound_dir_loc.npy", sound_dir_loc)
 
     audio_split = []
@@ -74,7 +73,6 @@ def preprocess_split():
 
 
 def check_demographic(trait="label"):
-
     print("checking training and testing", trait)
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
@@ -96,7 +94,12 @@ def check_demographic(trait="label"):
 
 
 def extract_and_save_embeddings_baselines(feature="opensmile"):
-    from src.benchmark.baseline.extract_feature import extract_opensmile_features, extract_vgg_feature, extract_clap_feature, extract_audioMAE_feature
+    from src.benchmark.baseline.extract_feature import (
+        extract_opensmile_features,
+        extract_vgg_feature,
+        extract_clap_feature,
+        extract_audioMAE_feature,
+    )
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
 
@@ -105,8 +108,7 @@ def extract_and_save_embeddings_baselines(feature="opensmile"):
         for file in tqdm(sound_dir_loc):
             opensmile_feature = extract_opensmile_features(file)
             opensmile_features.append(opensmile_feature)
-        np.save(feature_dir + "opensmile_feature.npy",
-                np.array(opensmile_features))
+        np.save(feature_dir + "opensmile_feature.npy", np.array(opensmile_features))
 
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
@@ -116,20 +118,21 @@ def extract_and_save_embeddings_baselines(feature="opensmile"):
         np.save(feature_dir + "clap_feature.npy", np.array(clap_features))
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
-        np.save(feature_dir + "audiomae_feature.npy",
-                np.array(audiomae_feature))
+        np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
 
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
     from src.benchmark.model_util import extract_opera_feature
+
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     opera_features = extract_opera_feature(
-        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim)
+        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
+    )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrain", type=str, default="operaCE")
     parser.add_argument("--min_len_cnn", type=int, default=8)
@@ -151,5 +154,4 @@ if __name__ == '__main__':
             input_sec = args.min_len_cnn
         elif args.pretrain == "operaGT":
             input_sec = 8.18
-        extract_and_save_embeddings(
-            args.pretrain, input_sec=input_sec, dim=args.dim)
+        extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)

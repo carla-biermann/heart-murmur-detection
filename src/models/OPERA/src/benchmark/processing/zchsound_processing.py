@@ -17,8 +17,8 @@ def get_labels_from_csv(path):
     label_dict = {}
     label_set = set()  # Collect unique labels for mapping
 
-    with open(path, 'r') as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=';')
+    with open(path, "r") as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=";")
         header = next(csvreader)  # Skip header
         for row in csvreader:
             file_id, diagnosis = row[0], row[3]
@@ -37,6 +37,7 @@ def get_labels_from_csv(path):
 
     print(f"Label Mappings: {label_to_int}")
     return label_dict, label_to_int
+
 
 def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
     """Split dataset into train, val, and test sets, and save splits."""
@@ -79,6 +80,7 @@ def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", audio_labels)
 
+
 def check_demographic(trait="label"):
     """Check the class distribution for train/val/test sets."""
     print(f"Checking class distribution by {trait}")
@@ -99,14 +101,17 @@ def check_demographic(trait="label"):
             counts[int_to_label[str(label)]] += 1
         print(f"{split_name.capitalize()} Distribution: {dict(counts)}")
 
+
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     opera_features = extract_opera_feature(
-        sound_dir_loc,  pretrain=feature, input_sec=input_sec, dim=dim, sr=2000)
+        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim, sr=2000
+    )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrain", type=str, default="operaCE")
     parser.add_argument("--dim", type=int, default=1280)
@@ -130,7 +135,9 @@ if __name__ == '__main__':
     # Check if audio directory exists
     if not os.path.exists(audio_dir):
         print(os.getcwd())
-        raise FileNotFoundError(f"Folder not found: {audio_dir}, please ensure the dataset is downloaded.")
+        raise FileNotFoundError(
+            f"Folder not found: {audio_dir}, please ensure the dataset is downloaded."
+        )
 
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)
@@ -143,5 +150,4 @@ if __name__ == '__main__':
         input_sec = args.min_len_cnn
     elif args.pretrain == "operaGT":
         input_sec = 8.18
-    extract_and_save_embeddings(
-        args.pretrain, input_sec=input_sec, dim=args.dim)
+    extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)

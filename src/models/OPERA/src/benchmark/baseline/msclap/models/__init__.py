@@ -1,4 +1,4 @@
-from . import clap 
+from . import clap
 from . import audio
 from . import htsat
 from . import config

@@ -27,155 +27,126 @@
 # ==============================================================================
 
 
-
 """Post-process embeddings from VGGish."""
 
-
-
 import numpy as np
-
 
 
 import vggish_params
 
 
-
-
-
 class Postprocessor(object):
-
-  """Post-processes VGGish embeddings.
-
-
-
-  The initial release of AudioSet included 128-D VGGish embeddings for each
-
-  segment of AudioSet. These released embeddings were produced by applying
-
-  a PCA transformation (technically, a whitening transform is included as well)
-
-  and 8-bit quantization to the raw embedding output from VGGish, in order to
-
-  stay compatible with the YouTube-8M project which provides visual embeddings
-
-  in the same format for a large set of YouTube videos. This class implements
-
-  the same PCA (with whitening) and quantization transformations.
-
-  """
+    """Post-processes VGGish embeddings.
 
 
 
-  def __init__(self, pca_params_npz_path):
+    The initial release of AudioSet included 128-D VGGish embeddings for each
 
-    """Constructs a postprocessor.
+    segment of AudioSet. These released embeddings were produced by applying
 
+    a PCA transformation (technically, a whitening transform is included as well)
 
+    and 8-bit quantization to the raw embedding output from VGGish, in order to
 
-    Args:
+    stay compatible with the YouTube-8M project which provides visual embeddings
 
-      pca_params_npz_path: Path to a NumPy-format .npz file that
+    in the same format for a large set of YouTube videos. This class implements
 
-        contains the PCA parameters used in postprocessing.
+    the same PCA (with whitening) and quantization transformations.
 
     """
 
-    params = np.load(pca_params_npz_path)
-
-    self._pca_matrix = params[vggish_params.PCA_EIGEN_VECTORS_NAME]
-
-    # Load means into a column vector for easier broadcasting later.
-
-    self._pca_means = params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
-
-    assert self._pca_matrix.shape == (
-
-        vggish_params.EMBEDDING_SIZE, vggish_params.EMBEDDING_SIZE), (
-
-            'Bad PCA matrix shape: %r' % (self._pca_matrix.shape,))
-
-    assert self._pca_means.shape == (vggish_params.EMBEDDING_SIZE, 1), (
-
-        'Bad PCA means shape: %r' % (self._pca_means.shape,))
+    def __init__(self, pca_params_npz_path):
+        """Constructs a postprocessor.
 
 
 
-  def postprocess(self, embeddings_batch):
+        Args:
 
-    """Applies postprocessing to a batch of embeddings.
+          pca_params_npz_path: Path to a NumPy-format .npz file that
 
+            contains the PCA parameters used in postprocessing.
 
+        """
 
-    Args:
+        params = np.load(pca_params_npz_path)
 
-      embeddings_batch: An nparray of shape [batch_size, embedding_size]
+        self._pca_matrix = params[vggish_params.PCA_EIGEN_VECTORS_NAME]
 
-        containing output from the embedding layer of VGGish.
+        # Load means into a column vector for easier broadcasting later.
 
+        self._pca_means = params[vggish_params.PCA_MEANS_NAME].reshape(-1, 1)
 
+        assert self._pca_matrix.shape == (
+            vggish_params.EMBEDDING_SIZE,
+            vggish_params.EMBEDDING_SIZE,
+        ), "Bad PCA matrix shape: %r" % (self._pca_matrix.shape,)
 
-    Returns:
+        assert self._pca_means.shape == (vggish_params.EMBEDDING_SIZE, 1), (
+            "Bad PCA means shape: %r" % (self._pca_means.shape,)
+        )
 
-      An nparray of the same shape as the input but of type uint8,
-
-      containing the PCA-transformed and quantized version of the input.
-
-    """
-
-    assert len(embeddings_batch.shape) == 2, (
-
-        'Expected 2-d batch, got %r' % (embeddings_batch.shape,))
-
-    assert embeddings_batch.shape[1] == vggish_params.EMBEDDING_SIZE, (
-
-        'Bad batch shape: %r' % (embeddings_batch.shape,))
+    def postprocess(self, embeddings_batch):
+        """Applies postprocessing to a batch of embeddings.
 
 
 
-    # Apply PCA.
+        Args:
 
-    # - Embeddings come in as [batch_size, embedding_size].
+          embeddings_batch: An nparray of shape [batch_size, embedding_size]
 
-    # - Transpose to [embedding_size, batch_size].
-
-    # - Subtract pca_means column vector from each column.
-
-    # - Premultiply by PCA matrix of shape [output_dims, input_dims]
-
-    #   where both are are equal to embedding_size in our case.
-
-    # - Transpose result back to [batch_size, embedding_size].
-
-    pca_applied = np.dot(self._pca_matrix,
-
-                         (embeddings_batch.T - self._pca_means)).T
+            containing output from the embedding layer of VGGish.
 
 
 
-    # Quantize by:
+        Returns:
 
-    # - clipping to [min, max] range
+          An nparray of the same shape as the input but of type uint8,
 
-    clipped_embeddings = np.clip(
+          containing the PCA-transformed and quantized version of the input.
 
-        pca_applied, vggish_params.QUANTIZE_MIN_VAL,
+        """
 
-        vggish_params.QUANTIZE_MAX_VAL)
+        assert len(embeddings_batch.shape) == 2, "Expected 2-d batch, got %r" % (
+            embeddings_batch.shape,
+        )
 
-    # - convert to 8-bit in range [0.0, 255.0]
+        assert embeddings_batch.shape[1] == vggish_params.EMBEDDING_SIZE, (
+            "Bad batch shape: %r" % (embeddings_batch.shape,)
+        )
 
-    quantized_embeddings = (
+        # Apply PCA.
 
-        (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL) *
+        # - Embeddings come in as [batch_size, embedding_size].
 
-        (255.0 /
+        # - Transpose to [embedding_size, batch_size].
 
-         (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL)))
+        # - Subtract pca_means column vector from each column.
 
-    # - cast 8-bit float to uint8
+        # - Premultiply by PCA matrix of shape [output_dims, input_dims]
 
-    quantized_embeddings = quantized_embeddings.astype(np.uint8)
+        #   where both are are equal to embedding_size in our case.
 
+        # - Transpose result back to [batch_size, embedding_size].
 
+        pca_applied = np.dot(self._pca_matrix, (embeddings_batch.T - self._pca_means)).T
 
-    return quantized_embeddings
+        # Quantize by:
+
+        # - clipping to [min, max] range
+
+        clipped_embeddings = np.clip(
+            pca_applied, vggish_params.QUANTIZE_MIN_VAL, vggish_params.QUANTIZE_MAX_VAL
+        )
+
+        # - convert to 8-bit in range [0.0, 255.0]
+
+        quantized_embeddings = (clipped_embeddings - vggish_params.QUANTIZE_MIN_VAL) * (
+            255.0 / (vggish_params.QUANTIZE_MAX_VAL - vggish_params.QUANTIZE_MIN_VAL)
+        )
+
+        # - cast 8-bit float to uint8
+
+        quantized_embeddings = quantized_embeddings.astype(np.uint8)
+
+        return quantized_embeddings

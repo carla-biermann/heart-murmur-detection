@@ -4,6 +4,7 @@ Created on Mon May  6 10:38:07 2024
 
 @author: xiato
 """
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
@@ -44,15 +45,23 @@ for line in metrics:
 # print(metrics)
 data = np.array(metrics)
 
-plt.figure(figsize=(5,5), dpi=300)
+plt.figure(figsize=(5, 5), dpi=300)
 # Define the number of variables (metrics) and methods
 num_vars = num_tasks
 num_methods = 7
 
-methods = ['Opensmile', 'VGGish', 'AudioMAE', 'CLAP', 'OPERA-CT', 'OPERA-CE', 'OPERA-GT']
+methods = [
+    "Opensmile",
+    "VGGish",
+    "AudioMAE",
+    "CLAP",
+    "OPERA-CT",
+    "OPERA-CE",
+    "OPERA-GT",
+]
+
 
 def compute_all():
-     
     num_vars = len(metrics)
 
     print(data)
@@ -63,11 +72,11 @@ def compute_all():
 
     # Rank the methods for each task
     for i in range(num_vars):
-        if i <12:
+        if i < 12:
             # ranks[i] = np.argsort(np.argsort(-data[i])) + 1
             ranks[i] = rankdata(-data[i], method="min")
         else:
-            # ranks[i] = np.argsort(np.argsort(data[i])) + 1 
+            # ranks[i] = np.argsort(np.argsort(data[i])) + 1
             ranks[i] = rankdata(data[i], method="min")
 
     print(ranks)
@@ -79,11 +88,11 @@ def compute_all():
 
     # Print the MRR for each method
     for method in range(num_methods):
-        print(f'{mrrs[method]:.4f}', end="\t")
+        print(f"{mrrs[method]:.4f}", end="\t")
     print()
 
+
 def compute_group1():
-     
     selected = range(12)
     mask = np.ma.make_mask([1 if i in selected else 0 for i in range(num_tasks)])
     data_selected = data[mask]
@@ -108,11 +117,11 @@ def compute_group1():
 
     # Print the MRR for each method
     for method in range(num_methods):
-        print(f'{mrrs[method]:.4f}', end="\t")
+        print(f"{mrrs[method]:.4f}", end="\t")
     print()
 
+
 def compute_group2():
-     
     selected = range(12, 19)
     mask = np.ma.make_mask([1 if i in selected else 0 for i in range(num_tasks)])
     data_selected = data[mask]
@@ -137,8 +146,9 @@ def compute_group2():
 
     # Print the MRR for each method
     for method in range(num_methods):
-        print(f'{mrrs[method]:.4f}', end="\t")
+        print(f"{mrrs[method]:.4f}", end="\t")
     print()
+
 
 compute_all()
 compute_group1()
