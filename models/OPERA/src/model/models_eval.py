@@ -1,3 +1,4 @@
+import collections
 import random
 
 import numpy as np
@@ -6,7 +7,8 @@ import torch
 import torch.nn as nn
 import torchaudio
 from torch.nn import functional as F
-from torchmetrics import AUROC
+from torchmetrics import AUROC, Accuracy, Specificity, Recall
+import wandb
 
 
 class AudioClassifier(pl.LightningModule):
@@ -650,6 +652,7 @@ class LinearHead(pl.LightningModule):
         lr=1e-4,
         loss_func=None,
         l2_strength=0.0005,
+        metrics=["auroc"],
     ):
         super().__init__()
         self.from_feature = from_feature
@@ -681,6 +684,21 @@ class LinearHead(pl.LightningModule):
         self.validation_step_outputs = []
         self.test_step_outputs = []
 
+        self.metrics = {}
+        available_metrics = {
+            "accuracy": Accuracy(task="multiclass", num_classes=classes),
+            "auroc": AUROC(task="multiclass", num_classes=classes),
+            "specificity": Specificity(task="multiclass", num_classes=classes),
+            "recall": Recall(task="multiclass", num_classes=classes),
+        }
+
+        if metrics:
+            for metric in metrics:
+                if metric in available_metrics:
+                    self.metrics[metric] = available_metrics[metric]
+                else:
+                    raise ValueError(f"Unsupported metric: {metric}")
+
     def forward(self, x):
         if self.from_feature:
             return self.head(x)
@@ -705,12 +723,21 @@ class LinearHead(pl.LightningModule):
         self.log("train_l2", l2_regularization)
         loss += self.l2_strength * l2_regularization
 
+        probabilities = F.softmax(y_hat, dim=1)
         _, predicted = torch.max(y_hat, 1)
         acc = (predicted == y).double().mean()
 
         self.log("train_acc", acc)
         # print("train_loss", loss)
         # print("train_acc", acc)f
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"train_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"train_{metric_name}": metric_value.item()})
 
         return loss
 
@@ -731,6 +758,14 @@ class LinearHead(pl.LightningModule):
 
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"val_{metric_name}": metric_value.item()})
 
         self.validation_step_outputs.append(
             (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
@@ -754,6 +789,14 @@ class LinearHead(pl.LightningModule):
         self.test_step_outputs.append(
             (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
         )
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"test_{metric_name}": metric_value.item()})
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs

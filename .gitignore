@@ -2,35 +2,36 @@ datasets/
 wandb/
 
 # Saved OPERA models
-src/models/OPERA/cks/model/*
+models/OPERA/cks/model/*
 
 # Datasets
-src/models/OPERA/datasets/*
+models/OPERA/datasets/*
 
 # PASCAL work
-src/models/OPERA/scripts/pascal_eval.sh
-src/models/OPERA/scripts/zchsound_eval.sh
+models/OPERA/scripts/pascal_eval.sh
+models/OPERA/scripts/zchsound_eval.sh
 
 
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=11-valid_auc=0.76.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=15-valid_auc=0.76.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=24-valid_auc=0.76.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=29-valid_auc=0.76-v1.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=29-valid_auc=0.76.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=31-valid_auc=0.76.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=06-valid_auc=0.75.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=17-valid_auc=0.74.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=24-valid_auc=0.74.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=30-valid_auc=0.74.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=31-valid_auc=0.73.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=30-valid_auc=0.81.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=30-valid_auc=0.82.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.81-v1.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.81.ckpt
-src/models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.82.ckpt
-src/models/OPERA/scripts/zchsound_eval.sh
-src/models/OPERA/src/__pycache__/util.cpython-310.pyc
-src/models/OPERA/src/benchmark/baseline/audioMAE/pretrained.pth
-src/models/OPERA/src/model/__pycache__/models_eval.cpython-310.pyc
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=11-valid_auc=0.76.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=15-valid_auc=0.76.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=24-valid_auc=0.76.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=29-valid_auc=0.76-v1.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=29-valid_auc=0.76.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCE1280_32_0.0001_32_1e-05-epoch=31-valid_auc=0.76.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=06-valid_auc=0.75.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=17-valid_auc=0.74.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=24-valid_auc=0.74.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=30-valid_auc=0.74.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaCT768_32_0.0001_32_1e-05-epoch=31-valid_auc=0.73.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=30-valid_auc=0.81.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=30-valid_auc=0.82.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.81-v1.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.81.ckpt
+models/OPERA/cks/linear/zchsound/linear_operaGT384_32_0.0001_32_1e-05-epoch=31-valid_auc=0.82.ckpt
+models/OPERA/scripts/zchsound_eval.sh
+models/OPERA/src/__pycache__/util.cpython-310.pyc
+models/OPERA/src/benchmark/baseline/audioMAE/pretrained.pth
+models/OPERA/src/model/__pycache__/models_eval.cpython-310.pyc
+models/OPERA/src/model/__pycache__/models_eval.cpython-310.pyc
 src/notebooks/data_exploration.ipynb
-src/models/OPERA/src/model/__pycache__/models_eval.cpython-310.pyc
+
