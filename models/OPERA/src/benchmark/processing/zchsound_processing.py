@@ -106,8 +106,17 @@ def check_demographic(trait="label"):
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+    pad0 = True if feature in ["operaCT", "operaCE"] else False
     opera_features = extract_opera_feature(
-        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim, sr=2000
+        sound_dir_loc,
+        pretrain=feature,
+        input_sec=input_sec,
+        dim=dim,
+        pad0=pad0,
+        sr=2000,
+        butterworth_filter=3,
+        lowcut=20,
+        highcut=650,
     )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
