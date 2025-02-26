@@ -142,5 +142,4 @@ if __name__ == "__main__":
         input_sec = args.min_len_cnn
     elif args.pretrain == "operaGT":
         input_sec = 8.18
-    extract_and_save_embeddings(
-       args.pretrain, input_sec=input_sec, dim=args.dim)
+    extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
