@@ -158,7 +158,11 @@ def get_individual_segments_librosa(
     if butterworth_filter:
         # butter bandpass filter
         data = _butter_bandpass_filter(
-            lowcut=200, highcut=1800, fs=sample_rate, order=butterworth_filter
+            data=data,
+            lowcut=200,
+            highcut=1800,
+            fs=sample_rate,
+            order=butterworth_filter,
         )
 
     # Trim leading and trailing silence from an audio signal.
@@ -220,7 +224,11 @@ def get_entire_signal_librosa(
         if butterworth_filter:
             # butter bandpass filter
             data = _butter_bandpass_filter(
-                lowcut=lowcut, highcut=highcut, fs=sample_rate, order=butterworth_filter
+                data=data,
+                lowcut=lowcut,
+                highcut=highcut,
+                fs=sample_rate,
+                order=butterworth_filter,
             )
 
         # Trim leading and trailing silence from an audio signal.
@@ -314,7 +322,11 @@ def get_split_signal_librosa(
     if butterworth_filter:
         # butter bandpass filter
         data = _butter_bandpass_filter(
-            lowcut=lowcut, highcut=highcut, fs=sample_rate, order=butterworth_filter
+            data=data,
+            lowcut=lowcut,
+            highcut=highcut,
+            fs=sample_rate,
+            order=butterworth_filter,
         )
 
     # Trim leading and trailing silence from an audio signal.
@@ -378,7 +390,11 @@ def get_individual_cycles_librosa(
     if butterworth_filter:
         # butter bandpass filter
         data = _butter_bandpass_filter(
-            lowcut=200, highcut=1800, fs=sample_rate, order=butterworth_filter
+            data=data,
+            lowcut=200,
+            highcut=1800,
+            fs=sample_rate,
+            order=butterworth_filter,
         )
 
     for idx in recording_annotations.index:
@@ -532,7 +548,6 @@ def _duplicate_padding(sample, source, output_length, sample_rate, types):
     src_length = len(source)
     left = output_length - src_length  # amount to be padded
 
-    print("types", types)
     if types == "repeat":
         aug = sample
     # else:
@@ -775,7 +790,11 @@ def get_split_signal_fbank_pad(
     if butterworth_filter:
         # butter bandpass filter
         data = _butter_bandpass_filter(
-            lowcut=200, highcut=1800, fs=sample_rate, order=butterworth_filter
+            data=data,
+            lowcut=200,
+            highcut=1800,
+            fs=sample_rate,
+            order=butterworth_filter,
         )
 
     # Trim leading and trailing silence from an audio signal.

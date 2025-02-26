@@ -52,7 +52,7 @@ def extract_opera_feature(
     from_spec=False,
     dim=1280,
     pad0=False,
-    sr=None,
+    sr=16000,
     butterworth_filter=None,
     lowcut=200,
     highcut=1800,
@@ -74,53 +74,80 @@ def extract_opera_feature(
     with torch.no_grad():
         for audio_file in tqdm(sound_dir_loc):
             if MAE:
-                data = (
-                    get_split_signal_librosa(
-                        "",
-                        audio_file[:-4],
-                        spectrogram=True,
-                        input_sec=input_sec,
-                        sample_rate=sr,
-                        butterworth_filter=butterworth_filter,
-                        lowcut=lowcut,
-                        highcut=highcut,
-                    )
-                    if not from_spec
-                    else [
+                if from_spec:
+                    data = [
                         audio_file[i : i + 256] for i in range(0, len(audio_file), 256)
                     ]
-                )
-                features = [
-                    model.forward_feature(
-                        torch.tensor(np.expand_dims(x, axis=0), dtype=torch.float).to(
-                            device
+                else:
+                    data = (
+                        get_split_signal_librosa(
+                            "",
+                            audio_file[:-4],
+                            spectrogram=True,
+                            input_sec=input_sec,
+                            sample_rate=sr,
+                            butterworth_filter=butterworth_filter,
+                            lowcut=lowcut,
+                            highcut=highcut,
                         )
+                        if not from_spec
+                        else [
+                            audio_file[i : i + 256]
+                            for i in range(0, len(audio_file), 256)
+                        ]
                     )
-                    .detach()
-                    .cpu()
-                    .numpy()
-                    for x in data
-                    if x.shape[0] >= 16
-                ]
+                features = []
+                for x in data:
+                    if (
+                        x.shape[0] >= 16
+                    ):  # Kernel size can't be greater than actual input size
+                        x = np.expand_dims(x, axis=0)
+                        x = torch.tensor(x, dtype=torch.float).to(device)
+                        fea = model.forward_feature(x).detach().cpu().numpy()
+                        features.append(fea)
                 features_sta = np.mean(features, axis=0)
                 opera_features.append(features_sta.tolist())
             else:
-                data = get_entire_signal_librosa(
-                    "",
-                    audio_file[:-4],
-                    spectrogram=True,
-                    input_sec=input_sec,
-                    pad=True,
-                    types="zero" if pad0 else None,
-                    sample_rate=sr,
-                    butterworth_filter=butterworth_filter,
-                    lowcut=lowcut,
-                    highcut=highcut,
-                )
-                x = torch.tensor(np.expand_dims(data, axis=0), dtype=torch.float).to(
-                    device
-                )
+                #  put entire audio into the model
+                if from_spec:
+                    data = audio_file
+                else:
+                    # input is filename of an audio
+                    if pad0:
+                        data = get_entire_signal_librosa(
+                            "",
+                            audio_file[:-4],
+                            spectrogram=True,
+                            input_sec=input_sec,
+                            pad=True,
+                            types="zero",
+                            sample_rate=sr,
+                            butterworth_filter=butterworth_filter,
+                            lowcut=lowcut,
+                            highcut=highcut,
+                        )
+                    else:
+                        data = get_entire_signal_librosa(
+                            "",
+                            audio_file[:-4],
+                            spectrogram=True,
+                            input_sec=input_sec,
+                            pad=True,
+                            sample_rate=sr,
+                            butterworth_filter=butterworth_filter,
+                            lowcut=lowcut,
+                            highcut=highcut,
+                        )
+
+                data = np.array(data)
+
+                # for entire audio, batchsize = 1
+                data = np.expand_dims(data, axis=0)
+
+                x = torch.tensor(data, dtype=torch.float).to(device)
                 features = model.extract_feature(x, dim).detach().cpu().numpy()
+
+                # for entire audio, batchsize = 1
                 opera_features.append(features.tolist()[0])
 
     x_data = np.array(opera_features)
@@ -148,7 +175,7 @@ def initialize_pretrained_model(pretrain):
                 split_pos=False,
                 pos_trainable=False,
                 use_nce=False,
-                decoder_mode=1,
+                decoder_mode=1,  # decoder mode 0: global attn 1: swined local attn
                 mask_2d=False,
                 mask_t_prob=0.7,
                 mask_f_prob=0.3,

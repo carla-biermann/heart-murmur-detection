@@ -61,13 +61,13 @@ def read_data(dataset):
     sound_files = np.array(sound_files)
     labels = np.array(labels)
 
-    return sound_files, labels, int_to_label
+    return sound_files, labels, label_to_int
 
 
 def preprocess_split(dataset):
     """Split dataset into train, val, and test sets, and save splits."""
 
-    sound_files, labels, int_to_label = read_data(dataset)
+    sound_files, labels, label_to_int = read_data(dataset)
 
     # Verify initial distribution
     print("Initial Class Distribution:", dict(collections.Counter(labels)))
@@ -81,23 +81,28 @@ def preprocess_split(dataset):
         _x_train, _y_train, test_size=0.2, random_state=1337, stratify=_y_train
     )
 
-    # Print distributions
-    def print_distribution(name, y):
-        dist = collections.Counter(y)
-        readable = {int_to_label[k]: v for k, v in dist.items()}
-        print(f"{name} Distribution:", readable)
+    print("Class distribution:")
+    print(f"Train: {collections.Counter(y_train)}")
+    print(f"Val: {collections.Counter(y_val)}")
+    print(f"Test: {collections.Counter(y_test)}")
 
-    print_distribution("Train", y_train)
-    print_distribution("Val", y_val)
-    print_distribution("Test", y_test)
+    # Save .wav file locations
+    np.save(feature_dir + "sound_dir_loc.npy", sound_files)
 
-    # Save splits and labels
-    np.save(feature_dir + "x_train.npy", x_train)
-    np.save(feature_dir + "y_train.npy", y_train)
-    np.save(feature_dir + "x_val.npy", x_val)
-    np.save(feature_dir + "y_val.npy", y_val)
-    np.save(feature_dir + "x_test.npy", x_test)
-    np.save(feature_dir + "y_test.npy", y_test)
+    # Create train/val/test splits for audio files
+    audio_splits = []
+    for i, file in enumerate(sound_files):
+        file_id = os.path.basename(file)
+        if file_id in x_train:
+            print("train")
+            audio_splits.append("train")
+        elif file_id in x_val:
+            audio_splits.append("val")
+        else:
+            audio_splits.append("test")
+
+    np.save(feature_dir + "train_test_split.npy", audio_splits)
+    np.save(feature_dir + "labels.npy", labels)
 
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
@@ -137,5 +142,5 @@ if __name__ == "__main__":
         input_sec = args.min_len_cnn
     elif args.pretrain == "operaGT":
         input_sec = 8.18
-    # extract_and_save_embeddings(
-    #    args.pretrain, input_sec=input_sec, dim=args.dim)
+    extract_and_save_embeddings(
+       args.pretrain, input_sec=input_sec, dim=args.dim)
