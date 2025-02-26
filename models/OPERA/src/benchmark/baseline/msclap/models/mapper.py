@@ -11,9 +11,7 @@ def get_clapcap(name: str):
     if name == "ClapCaption":
         return ClapCaptionModel
     else:
-        raise Exception(
-            f"The ClapCap model {name} is incorrect or not supported"
-        )
+        raise Exception(f"The ClapCap model {name} is incorrect or not supported")
 
 
 class MappingType(Enum):

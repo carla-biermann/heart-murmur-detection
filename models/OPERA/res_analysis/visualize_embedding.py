@@ -24,9 +24,7 @@ def visualize_embedding_multiple(
         if dt in ["covidbreath", "covidcough"]:
             modality = dt[5:]
             filenames = list(
-                np.load(
-                    f"datasets/covid/SSL_entireaudio_filenames_{modality}.npy"
-                )
+                np.load(f"datasets/covid/SSL_entireaudio_filenames_{modality}.npy")
             )
 
         elif dt == "icbhi":

@@ -146,9 +146,7 @@ def finetune_covid19sounds(
         if not os.path.exists(feature_dir + "fbank_audiomae.npy"):
             from src.util import get_split_signal_fbank_pad
 
-            sound_dir_loc = np.load(
-                feature_dir + f"sound_dir_loc_{modality}.npy"
-            )
+            sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
             x_data = []
             for audio_file in sound_dir_loc:
                 data = get_split_signal_fbank_pad(
@@ -203,9 +201,7 @@ def finetune_covid19sounds(
         if not os.path.exists(feature_dir + f"spectrogram_pad8_{modality}.npy"):
             from src.util import get_split_signal_librosa
 
-            sound_dir_loc = np.load(
-                feature_dir + f"sound_dir_loc_{modality}.npy"
-            )
+            sound_dir_loc = np.load(feature_dir + f"sound_dir_loc_{modality}.npy")
             x_data = []
             for audio_file in sound_dir_loc:
                 data = get_split_signal_librosa(

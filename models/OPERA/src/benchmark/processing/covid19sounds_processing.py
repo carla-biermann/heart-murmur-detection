@@ -40,9 +40,7 @@ def preprocess_task1(modality="cough"):
 
     np.save(task1_dir + "labels.npy", np.array(labels))
     np.save(task1_dir + "data_split.npy", np.array(data_split))
-    np.save(
-        task1_dir + f"sound_dir_loc_{modality}.npy", np.array(sound_dir_loc)
-    )
+    np.save(task1_dir + f"sound_dir_loc_{modality}.npy", np.array(sound_dir_loc))
 
 
 def task1_downsample(downsampling_factor=5):
@@ -138,9 +136,7 @@ def extract_opera_features(feature, task=1, modality="cough", input_sec=8, dim=1
         sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
     )
     feature += str(dim)
-    print(
-        "saving feature to", feature_dir + feature + f"_feature_{modality}.npy"
-    )
+    print("saving feature to", feature_dir + feature + f"_feature_{modality}.npy")
     np.save(
         feature_dir + feature + f"_feature_{modality}.npy",
         np.array(opera_features),

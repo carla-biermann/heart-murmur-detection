@@ -102,14 +102,10 @@ def extract_and_save_embeddings_baselines(label, feature="opensmile"):
         )
     elif feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
-        np.save(
-            feature_dir + f"vggish_feature_{label}.npy", np.array(vgg_features)
-        )
+        np.save(feature_dir + f"vggish_feature_{label}.npy", np.array(vgg_features))
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
-        np.save(
-            feature_dir + f"clap_feature_{label}.npy", np.array(clap_features)
-        )
+        np.save(feature_dir + f"clap_feature_{label}.npy", np.array(clap_features))
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
         np.save(

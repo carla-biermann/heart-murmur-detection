@@ -84,9 +84,7 @@ class CLAPWrapper:
                     if k in args.__dict__:
                         args.__dict__[k] = v
                     else:
-                        sys.stderr.write(
-                            f"Ignored unknown parameter {k} in yaml.\n"
-                        )
+                        sys.stderr.write(f"Ignored unknown parameter {k} in yaml.\n")
             else:
                 for k, v in yml_config.items():
                     return_dict[k] = v

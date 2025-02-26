@@ -102,9 +102,7 @@ def linear_evaluation_covid19sounds(
     folders = {1: "feature/covid19sounds_eval/downsampled/"}
     folder = folders[task]
 
-    x_data = np.load(
-        folder + use_feature + f"_feature_{modality}.npy"
-    ).squeeze()
+    x_data = np.load(folder + use_feature + f"_feature_{modality}.npy").squeeze()
     y_label = np.load(folder + "labels.npy")
     y_set = np.load(folder + "data_split.npy")
 
@@ -459,8 +457,7 @@ def linear_evaluation_coswara(
 
     broad_modality = modality.split("-")[0]
     labels = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
     )
     features = np.load(
         feature_dir + use_feature + f"_feature_{modality}_{label}.npy"
@@ -695,9 +692,7 @@ def linear_evaluation_coughvid(
     y_set = np.load(feature_dir + f"split_{label}.npy")
     y_label = np.load(feature_dir + f"label_{label}.npy")
     print(collections.Counter(y_label))
-    x_data = np.load(
-        feature_dir + use_feature + f"_feature_{label}.npy"
-    ).squeeze()
+    x_data = np.load(feature_dir + use_feature + f"_feature_{label}.npy").squeeze()
 
     if use_feature == "vggish":
         x_data = np.nan_to_num(x_data)
@@ -805,9 +800,7 @@ def linear_evaluation_coviduk(
     y_set = np.load(feature_dir + f"split_{modality}.npy")
     y_label = np.load(feature_dir + f"label_{modality}.npy")
     print(collections.Counter(y_label))
-    x_data = np.load(
-        feature_dir + use_feature + f"_feature_{modality}.npy"
-    ).squeeze()
+    x_data = np.load(feature_dir + use_feature + f"_feature_{modality}.npy").squeeze()
 
     if use_feature == "vggish":
         x_data = np.nan_to_num(x_data)

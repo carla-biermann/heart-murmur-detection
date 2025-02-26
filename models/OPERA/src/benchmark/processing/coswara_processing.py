@@ -122,9 +122,7 @@ def preprocess_modality(modality="breathing", label="sex"):
             uuid_dict[uuid] += 1
 
     for submodality in submodalities[modality]:
-        labels = np.load(
-            feature_dir + f"{label}_label_{modality + submodality}.npy"
-        )
+        labels = np.load(feature_dir + f"{label}_label_{modality + submodality}.npy")
         filenames = np.load(
             feature_dir
             + f"entireaudio_filenames_{modality + submodality}_w_{label}.npy"
@@ -156,8 +154,7 @@ def preprocess_split_google():
 
     # split once, sequence same
     labels = np.load(
-        feature_dir
-        + f"{modality}_aligned_{label}_label_{modality + submodality}.npy"
+        feature_dir + f"{modality}_aligned_{label}_label_{modality + submodality}.npy"
     )
 
     # Indices of positive and negative class
@@ -188,13 +185,11 @@ def preprocess_split_google():
 def split_set(modality, label="smoker"):
     broad_modality = modality.split("-")[0]
     sound_dir_loc = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
     )
 
     labels = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
     )
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -212,13 +207,11 @@ def check_demographic(modality, label="smoker", trait="label"):
     print("checking training and testing demographic", trait, modality, label)
     broad_modality = modality.split("-")[0]
     sound_dir_loc = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
     )
 
     labels = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_{label}_label_{modality}.npy"
     )
     split = np.load(
         feature_dir
@@ -256,8 +249,7 @@ def preprocess_spectrogram(modality, label="sex"):
     broad_modality = modality.split("-")[0]
 
     if os.path.exists(
-        feature_dir
-        + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz"
+        feature_dir + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz"
     ):
         print(f"spectrogram of {modality} with {label} label already exist")
         return
@@ -265,8 +257,7 @@ def preprocess_spectrogram(modality, label="sex"):
     print(f"preprocessing spectrogram of {modality} with {label} label")
     check_data_dir()
     sound_dir_loc = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
     )
     print("number of files", len(sound_dir_loc))
     for file in tqdm(sound_dir_loc):
@@ -276,8 +267,7 @@ def preprocess_spectrogram(modality, label="sex"):
         audio_images.append(data)
     # np.savez(feature_dir + "entire_spec_all_{}_w_{}.npz".format(modality, label), *audio_images)
     np.savez(
-        feature_dir
-        + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz",
+        feature_dir + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz",
         *audio_images,
     )
 
@@ -296,8 +286,7 @@ def extract_and_save_embeddings_baselines(modality, label="sex", feature="opensm
 
     broad_modality = modality.split("-")[0]
     sound_dir_loc = np.load(
-        feature_dir
-        + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
+        feature_dir + f"{broad_modality}_aligned_filenames_{label}_w_{modality}.npy"
     )
 
     if feature == "opensmile":
@@ -335,14 +324,12 @@ def extract_and_save_embeddings(feature, modality, label="sex", input_sec=8, dim
     broad_modality = modality.split("-")[0]
     if input_sec == 2:
         audio_images = np.load(
-            feature_dir
-            + f"{broad_modality}_aligned_spec_pad2_{modality}_w_{label}.npz"
+            feature_dir + f"{broad_modality}_aligned_spec_pad2_{modality}_w_{label}.npz"
         )
     else:
         # default 8
         audio_images = np.load(
-            feature_dir
-            + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz"
+            feature_dir + f"{broad_modality}_aligned_spec_{modality}_w_{label}.npz"
         )
     audio_images = [audio_images[f] for f in audio_images.files]
     opera_features = extract_opera_feature(

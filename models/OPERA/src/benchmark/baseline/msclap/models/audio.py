@@ -12,9 +12,7 @@ def get_audio_encoder(name: str):
     elif name == "HTSAT":
         return HTSATWrapper
     else:
-        raise Exception(
-            f"The audio encoder name {name} is incorrect or not supported"
-        )
+        raise Exception(f"The audio encoder name {name} is incorrect or not supported")
 
 
 class ConvBlock(nn.Module):
