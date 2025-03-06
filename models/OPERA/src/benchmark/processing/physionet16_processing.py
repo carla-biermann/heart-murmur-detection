@@ -6,6 +6,11 @@ import os
 
 import numpy as np
 from sklearn.model_selection import train_test_split
+from src.benchmark.baseline.extract_feature import (
+    extract_audioMAE_feature,
+    extract_clap_feature,
+    extract_vgg_feature,
+)
 
 # Directories
 data_dir = "datasets/physionet.org/files/challenge-2016/1.0.0/"
@@ -114,16 +119,29 @@ def preprocess_split():
     # Create train/val/test splits for audio files
     audio_splits = []
     for i, file in enumerate(sound_files):
-        file_id = os.path.basename(file)
-        if file_id in x_train:
+        if file in x_train:
             audio_splits.append("train")
-        elif file_id in x_val:
+        elif file in x_val:
             audio_splits.append("val")
         else:
             audio_splits.append("test")
 
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", labels)
+
+
+def extract_and_save_embeddings_baselines(feature="audiomae"):
+    sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+
+    if feature == "vggish":
+        vgg_features = extract_vgg_feature(sound_dir_loc)
+        np.save(feature_dir + "vggish_feature.npy", np.array(vgg_features))
+    elif feature == "clap":
+        clap_features = extract_clap_feature(sound_dir_loc)
+        np.save(feature_dir + "clap_feature.npy", np.array(clap_features))
+    elif feature == "audiomae":
+        audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
+        np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
 
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
@@ -156,10 +174,13 @@ if __name__ == "__main__":
         os.makedirs(feature_dir)
         preprocess_split()
 
-    if args.pretrain == "operaCT":
-        input_sec = args.min_len_htsat
-    elif args.pretrain == "operaCE":
-        input_sec = args.min_len_cnn
-    elif args.pretrain == "operaGT":
-        input_sec = 8.18
-    extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
+    if args.pretrain in ["vggish", "clap", "audiomae"]:
+        extract_and_save_embeddings_baselines(args.pretrain)
+    else:
+        if args.pretrain == "operaCT":
+            input_sec = args.min_len_htsat
+        elif args.pretrain == "operaCE":
+            input_sec = args.min_len_cnn
+        elif args.pretrain == "operaGT":
+            input_sec = 8.18
+        extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
