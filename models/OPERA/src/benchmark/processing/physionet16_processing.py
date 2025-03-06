@@ -28,6 +28,8 @@ def get_files_and_labels(dir):
     files = gb.glob(os.path.join(dir, "*.wav"))
     print(f"{dir}: {len(files)} files")
 
+    label_to_int = {"normal": 0, "abnormal": 1}
+
     labels = []
     # Read label from .hea file
     for file in files:
@@ -36,7 +38,7 @@ def get_files_and_labels(dir):
             lines = f.readlines()
 
         label = lines[-1].strip().lstrip("#").strip().lower()
-        labels.append(label)
+        labels.append(label_to_int[label])
     return files, labels
 
 
