@@ -1342,7 +1342,7 @@ def linear_evaluation_zchsound(
     )
 
     wandb_logger = WandbLogger(
-        project="ZCHSound-Evaluation",
+        project=f"ZCHSound-{data}-Evaluation",
         name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
         log_model=True,
     )
@@ -1425,6 +1425,349 @@ def linear_evaluation_zchsound(
     wandb_logger.experiment.log({"test_auc": auc})
     print(
         "finished training dataset ZCHSound using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+    wandb.finish()
+    return auc
+
+def linear_evaluation_pascal(
+    n_cls=5,
+    use_feature="operaCE1280",
+    l2_strength=1e-5,
+    epochs=64,
+    batch_size=32,
+    lr=1e-4,
+    head="linear",
+    dataset="A",
+):
+    print("*" * 48)
+    print(
+        "training dataset PASCAL using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+
+    wandb_logger = WandbLogger(
+        project=f"PASCAL-{dataset}-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
+    feature_dir = f"feature/pascal_eval_{dataset}/"
+
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + "labels.npy")
+    print(collections.Counter(y_label))
+    x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
+
+    feat_dim = x_data.shape[1]
+    print(feat_dim)
+
+    x_data_train = x_data[y_set == "train"]
+    y_label_train = y_label[y_set == "train"]
+    x_data_vad = x_data[y_set == "val"]
+    y_label_vad = y_label[y_set == "val"]
+    x_data_test = x_data[y_set == "test"]
+    y_label_test = y_label[y_set == "test"]
+
+    print(collections.Counter(y_label_train))
+    print(collections.Counter(y_label_vad))
+    print(collections.Counter(y_label_test))
+
+    train_data = FeatureDataset((x_data_train, y_label_train))
+    test_data = FeatureDataset((x_data_test, y_label_test))
+    val_data = FeatureDataset((x_data_vad, y_label_vad))
+
+    train_loader = DataLoader(
+        train_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    val_loader = DataLoader(
+        val_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    test_loader = DataLoader(
+        test_data, batch_size=batch_size, shuffle=True, num_workers=1
+    )
+
+    model = LinearHead(
+        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="valid_auc",
+        mode="max",
+        dirpath="cks/linear/pascal/",
+        filename="_".join(
+            [head, use_feature, str(batch_size), str(lr), str(epochs), str(l2_strength)]
+        )
+        + "-{epoch:02d}-{valid_auc:.2f}",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=epochs,
+        accelerator="gpu",
+        devices=1,
+        logger=wandb_logger,
+        callbacks=[DecayLearningRate(), checkpoint_callback],
+        gradient_clip_val=1.0,
+        log_every_n_steps=1,
+        enable_progress_bar=False,
+    )
+    trainer.fit(model, train_loader, val_loader)
+
+    test_res = trainer.test(dataloaders=test_loader)
+    auc = test_res[0]["test_auc"]
+    wandb_logger.experiment.log({"test_auc": auc})
+    print(
+        f"finished training dataset PASCAL {dataset} using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+    wandb.finish()
+    return auc
+
+def linear_evaluation_physionet16(
+    n_cls=5,
+    use_feature="operaCE1280",
+    l2_strength=1e-5,
+    epochs=64,
+    batch_size=32,
+    lr=1e-4,
+    head="linear",
+):
+    print("*" * 48)
+    print(
+        "training dataset Physionet 2016 using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+
+    wandb_logger = WandbLogger(
+        project="Physionet2016-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
+    feature_dir = "feature/physionet16_eval/"
+
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + "labels.npy")
+    print(collections.Counter(y_label))
+    x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
+
+    feat_dim = x_data.shape[1]
+    print(feat_dim)
+
+    x_data_train = x_data[y_set == "train"]
+    y_label_train = y_label[y_set == "train"]
+    x_data_vad = x_data[y_set == "val"]
+    y_label_vad = y_label[y_set == "val"]
+    x_data_test = x_data[y_set == "test"]
+    y_label_test = y_label[y_set == "test"]
+
+    print(collections.Counter(y_label_train))
+    print(collections.Counter(y_label_vad))
+    print(collections.Counter(y_label_test))
+
+    train_data = FeatureDataset((x_data_train, y_label_train))
+    test_data = FeatureDataset((x_data_test, y_label_test))
+    val_data = FeatureDataset((x_data_vad, y_label_vad))
+
+    train_loader = DataLoader(
+        train_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    val_loader = DataLoader(
+        val_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    test_loader = DataLoader(
+        test_data, batch_size=batch_size, shuffle=True, num_workers=1
+    )
+
+    model = LinearHead(
+        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="valid_auc",
+        mode="max",
+        dirpath="cks/linear/physionet16/",
+        filename="_".join(
+            [head, use_feature, str(batch_size), str(lr), str(epochs), str(l2_strength)]
+        )
+        + "-{epoch:02d}-{valid_auc:.2f}",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=epochs,
+        accelerator="gpu",
+        devices=1,
+        logger=wandb_logger,
+        callbacks=[DecayLearningRate(), checkpoint_callback],
+        gradient_clip_val=1.0,
+        log_every_n_steps=1,
+        enable_progress_bar=False,
+    )
+    trainer.fit(model, train_loader, val_loader)
+
+    test_res = trainer.test(dataloaders=test_loader)
+    auc = test_res[0]["test_auc"]
+    wandb_logger.experiment.log({"test_auc": auc})
+    print(
+        "finished training dataset Physionet 2016 using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+    wandb.finish()
+    return auc
+
+def linear_evaluation_circor(
+    n_cls=5,
+    use_feature="operaCE1280",
+    l2_strength=1e-5,
+    epochs=64,
+    batch_size=32,
+    lr=1e-4,
+    head="linear",
+):
+    print("*" * 48)
+    print(
+        "training dataset Circor using feature extracted by " + use_feature,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+
+    wandb_logger = WandbLogger(
+        project="Circor-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
+    feature_dir = "feature/circor_eval/"
+
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + "murmurs.npy")
+    print(collections.Counter(y_label))
+    x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
+
+    feat_dim = x_data.shape[1]
+    print(feat_dim)
+
+    x_data_train = x_data[y_set == "train"]
+    y_label_train = y_label[y_set == "train"]
+    x_data_vad = x_data[y_set == "val"]
+    y_label_vad = y_label[y_set == "val"]
+    x_data_test = x_data[y_set == "test"]
+    y_label_test = y_label[y_set == "test"]
+
+    print(collections.Counter(y_label_train))
+    print(collections.Counter(y_label_vad))
+    print(collections.Counter(y_label_test))
+
+    train_data = FeatureDataset((x_data_train, y_label_train))
+    test_data = FeatureDataset((x_data_test, y_label_test))
+    val_data = FeatureDataset((x_data_vad, y_label_vad))
+
+    train_loader = DataLoader(
+        train_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    val_loader = DataLoader(
+        val_data, batch_size=batch_size, num_workers=1, shuffle=True
+    )
+    test_loader = DataLoader(
+        test_data, batch_size=batch_size, shuffle=True, num_workers=1
+    )
+
+    model = LinearHead(
+        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="valid_auc",
+        mode="max",
+        dirpath="cks/linear/circor/",
+        filename="_".join(
+            [head, use_feature, str(batch_size), str(lr), str(epochs), str(l2_strength)]
+        )
+        + "-{epoch:02d}-{valid_auc:.2f}",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=epochs,
+        accelerator="gpu",
+        devices=1,
+        logger=wandb_logger,
+        callbacks=[DecayLearningRate(), checkpoint_callback],
+        gradient_clip_val=1.0,
+        log_every_n_steps=1,
+        enable_progress_bar=False,
+    )
+    trainer.fit(model, train_loader, val_loader)
+
+    test_res = trainer.test(dataloaders=test_loader)
+    auc = test_res[0]["test_auc"]
+    wandb_logger.experiment.log({"test_auc": auc})
+    print(
+        "finished training dataset Circor using feature extracted by " + use_feature,
         "with l2_strength",
         l2_strength,
         "lr",
@@ -1577,6 +1920,31 @@ if __name__ == "__main__":
                     head=args.head,
                     epochs=32,
                     data=args.task.split("_")[1],
+                )
+            elif args.task == "pascal_A" or args.task == "pascal_B":
+                auc = linear_evaluation_pascal(
+                    use_feature=feature,
+                    l2_strength=args.l2_strength,
+                    lr=args.lr,
+                    head=args.head,
+                    epochs=32,
+                    dataset=args.task.split("_")[1],
+                )
+            elif args.task == "circor":
+                auc = linear_evaluation_circor(
+                    use_feature=feature,
+                    l2_strength=args.l2_strength,
+                    lr=args.lr,
+                    head=args.head,
+                    epochs=32,
+                )
+            elif args.task == "physionet16":
+                auc = linear_evaluation_physionet16(
+                    use_feature=feature,
+                    l2_strength=args.l2_strength,
+                    lr=args.lr,
+                    head=args.head,
+                    epochs=32,
                 )
             auc_scores.append(auc)
         print("=" * 48)
