@@ -9,6 +9,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from src.benchmark.model_util import extract_opera_feature
+from src.benchmark.baseline.extract_feature import (
+    extract_audioMAE_feature,
+    extract_clap_feature,
+    extract_vgg_feature,
+)
 
 # Directories
 data_dir = "datasets/ZCHSound/"
@@ -103,6 +108,18 @@ def check_demographic(trait="label"):
             counts[int_to_label[str(label)]] += 1
         print(f"{split_name.capitalize()} Distribution: {dict(counts)}")
 
+def extract_and_save_embeddings_baselines(feature="audiomae"):
+    sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+
+    if feature == "vggish":
+        vgg_features = extract_vgg_feature(sound_dir_loc)
+        np.save(feature_dir + "vggish_feature.npy", np.array(vgg_features))
+    elif feature == "clap":
+        clap_features = extract_clap_feature(sound_dir_loc)
+        np.save(feature_dir + "clap_feature.npy", np.array(clap_features))
+    elif feature == "audiomae":
+        audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
+        np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
@@ -155,10 +172,13 @@ if __name__ == "__main__":
         preprocess_split(csv_filename)
         check_demographic()
 
-    if args.pretrain == "operaCT":
-        input_sec = args.min_len_htsat
-    elif args.pretrain == "operaCE":
-        input_sec = args.min_len_cnn
-    elif args.pretrain == "operaGT":
-        input_sec = 8.18
-    extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
+    if args.pretrain in ["vggish", "clap", "audiomae"]:
+        extract_and_save_embeddings_baselines(args.pretrain)
+    else:
+        if args.pretrain == "operaCT":
+            input_sec = args.min_len_htsat
+        elif args.pretrain == "operaCE":
+            input_sec = args.min_len_cnn
+        elif args.pretrain == "operaGT":
+            input_sec = 8.18
+        extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
