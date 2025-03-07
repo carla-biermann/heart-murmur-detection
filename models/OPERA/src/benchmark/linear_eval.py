@@ -1395,7 +1395,11 @@ def linear_evaluation_zchsound(
     )
 
     model = LinearHead(
-        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+        feat_dim=feat_dim,
+        classes=n_cls,
+        l2_strength=l2_strength,
+        head=head,
+        metrics=["accuracy", "auroc", "specificity", "recall"],
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -1434,6 +1438,7 @@ def linear_evaluation_zchsound(
     )
     wandb.finish()
     return auc
+
 
 def linear_evaluation_pascal(
     n_cls=5,
@@ -1510,7 +1515,11 @@ def linear_evaluation_pascal(
     )
 
     model = LinearHead(
-        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+        feat_dim=feat_dim,
+        classes=n_cls,
+        l2_strength=l2_strength,
+        head=head,
+        metrics=["accuracy", "auroc", "specificity", "recall"],
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -1539,7 +1548,8 @@ def linear_evaluation_pascal(
     auc = test_res[0]["test_auc"]
     wandb_logger.experiment.log({"test_auc": auc})
     print(
-        f"finished training dataset PASCAL {dataset} using feature extracted by " + use_feature,
+        f"finished training dataset PASCAL {dataset} using feature extracted by "
+        + use_feature,
         "with l2_strength",
         l2_strength,
         "lr",
@@ -1549,6 +1559,7 @@ def linear_evaluation_pascal(
     )
     wandb.finish()
     return auc
+
 
 def linear_evaluation_physionet16(
     n_cls=5,
@@ -1624,7 +1635,11 @@ def linear_evaluation_physionet16(
     )
 
     model = LinearHead(
-        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+        feat_dim=feat_dim,
+        classes=n_cls,
+        l2_strength=l2_strength,
+        head=head,
+        metrics=["accuracy", "auroc", "specificity", "recall"],
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -1653,7 +1668,8 @@ def linear_evaluation_physionet16(
     auc = test_res[0]["test_auc"]
     wandb_logger.experiment.log({"test_auc": auc})
     print(
-        "finished training dataset Physionet 2016 using feature extracted by " + use_feature,
+        "finished training dataset Physionet 2016 using feature extracted by "
+        + use_feature,
         "with l2_strength",
         l2_strength,
         "lr",
@@ -1663,6 +1679,7 @@ def linear_evaluation_physionet16(
     )
     wandb.finish()
     return auc
+
 
 def linear_evaluation_circor(
     n_cls=5,
@@ -1738,7 +1755,11 @@ def linear_evaluation_circor(
     )
 
     model = LinearHead(
-        feat_dim=feat_dim, classes=n_cls, l2_strength=l2_strength, head=head
+        feat_dim=feat_dim,
+        classes=n_cls,
+        l2_strength=l2_strength,
+        head=head,
+        metrics=["accuracy", "auroc", "specificity", "recall"],
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -1799,7 +1820,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mapgoogle", type=bool, default=False
     )  # align test set with HeAR
-    parser.add_argument("--n_run", type=int, default=5)
+    parser.add_argument("--n_run", type=int, default=1)
 
     args = parser.parse_args()
 

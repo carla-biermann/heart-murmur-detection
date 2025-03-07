@@ -684,12 +684,14 @@ class LinearHead(pl.LightningModule):
         self.validation_step_outputs = []
         self.test_step_outputs = []
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
         self.metrics = {}
         available_metrics = {
-            "accuracy": Accuracy(task="multiclass", num_classes=classes),
-            "auroc": AUROC(task="multiclass", num_classes=classes),
-            "specificity": Specificity(task="multiclass", num_classes=classes),
-            "recall": Recall(task="multiclass", num_classes=classes),
+            "accuracy": Accuracy(task="multiclass", num_classes=classes).to(device),
+            "auroc": AUROC(task="multiclass", num_classes=classes).to(device),
+            "specificity": Specificity(task="multiclass", num_classes=classes).to(device),
+            "recall": Recall(task="multiclass", num_classes=classes).to(device),
         }
 
         if metrics:
