@@ -17,8 +17,11 @@ from src.benchmark.baseline.extract_feature import (
 
 # Directories
 data_dir = "datasets/circor/"
-audio_dir = "datasets/circor/training_data"
-feature_dir = "feature/circor_eval/"
+training_dir = "datasets/circor/training_data"
+int_to_murmurs = {"0": "Absent", "1": "Present", "2": "Unknown"}
+int_to_outcome = {"0": "Abnormal", "1": "Normal"}
+murmurs_to_int = {"Absent": "0", "Present": "1", "Unknown": "2"}
+outcome_to_int = {"Abnormal": "0", "Normal": "1"}
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -26,6 +29,40 @@ if not os.path.exists(data_dir):
     raise FileNotFoundError(
         f"Folder not found: {data_dir}, please ensure the dataset is downloaded."
     )
+
+
+def read_data():
+    dirs = ["test_data", "training_data", "validation_data"]
+
+    # Collect sound files, train_test_split and labels
+    sound_files = []
+    murmurs = []
+    outcomes = []
+    audio_splits = []
+    for dir in dirs:
+        audio_dir = os.path.join(data_dir, dir)
+        files = gb.glob(os.path.join(audio_dir, "*.wav"))
+        print(f"{dir}: {len(files)} files")
+
+        for file in files:
+            pat_id = os.path.basename(file).split("_")[0]
+            with open(audio_dir + f"/{pat_id}.txt", "r") as f:
+                for line in f:
+                    if line.startswith("#Murmur:"):
+                        murmurs.append(murmurs_to_int[line.split(":")[1].strip()])
+                    elif line.startswith("#Outcome:"):
+                        outcomes.append(outcome_to_int[line.split(":")[1].strip()])
+
+        sound_files.extend(files)
+
+        split = dir.split("_")[0]
+        split = "val" if split == "validation" else split
+        audio_splits.extend([split] * len(files))
+
+    np.save(feature_dir + "sound_dir_loc.npy", np.array(sound_files))
+    np.save(feature_dir + "train_test_split.npy", audio_splits)
+    np.save(feature_dir + "murmurs.npy", murmurs)
+    np.save(feature_dir + "outcomes.npy", outcomes)
 
 
 def get_labels_from_csv():
@@ -42,12 +79,6 @@ def get_labels_from_csv():
                 murmurs.append(murmur)
                 outcomes.append(outcome)
 
-    # Create label mappings
-    murmurs_to_int = {murmur: idx for idx, murmur in enumerate(sorted(set(murmurs)))}
-    outcome_to_int = {outcome: idx for idx, outcome in enumerate(sorted(set(outcomes)))}
-    int_to_murmurs = {idx: murmur for murmur, idx in murmurs_to_int.items()}
-    int_to_outcome = {idx: outcome for outcome, idx in outcome_to_int.items()}
-
     # Save mappings
     with open(feature_dir + "int_to_murmurs.json", "w") as f:
         json.dump(int_to_murmurs, f)
@@ -63,7 +94,7 @@ def get_labels_from_csv():
     return np.array(file_ids), np.array(murmur_ints), np.array(outcome_ints)
 
 
-def preprocess_split():
+def preprocess_split(train_only: bool):
     """Split dataset into train, val, and test sets, and save splits."""
     file_ids, murmurs, outcomes = get_labels_from_csv()
 
@@ -81,7 +112,7 @@ def preprocess_split():
     print(f"Test: {collections.Counter(y_test)}")
 
     # Save .wav file locations
-    sound_files = np.array(gb.glob(audio_dir + "/*.wav"))
+    sound_files = np.array(gb.glob(training_dir + "/*.wav"))
     np.save(feature_dir + "sound_dir_loc.npy", sound_files)
 
     # Create train/val/test splits for audio files
@@ -89,7 +120,7 @@ def preprocess_split():
     audio_labels = []
     outcome_labels = []
     for i, file in enumerate(sound_files):
-        file_id = os.path.basename(file).split(".")[0] # Remove ".wav" from filename
+        file_id = os.path.basename(file).split(".")[0]  # Remove ".wav" from filename
         if file_id in x_train:
             audio_splits.append("train")
         elif file_id in x_val:
@@ -141,19 +172,24 @@ if __name__ == "__main__":
     parser.add_argument("--dim", type=int, default=1280)
     parser.add_argument("--min_len_cnn", type=int, default=8)
     parser.add_argument("--min_len_htsat", type=int, default=8)
+    parser.add_argument("--train_only", type=bool, default=False)
 
     args = parser.parse_args()
 
     # Check if audio directory exists
-    if not os.path.exists(audio_dir):
+    if not os.path.exists(training_dir):
         print(os.getcwd())
         raise FileNotFoundError(
-            f"Folder not found: {audio_dir}, please ensure the dataset is downloaded."
+            f"Folder not found: {training_dir}, please ensure the dataset is downloaded."
         )
+
+    feature_dir = (
+        "feature/circor_eval_train_only/" if args.train_only else "feature/circor_eval/"
+    )
 
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)
-        preprocess_split()
+        preprocess_split() if args.train_only else read_data()
 
     if args.pretrain in ["vggish", "clap", "audiomae"]:
         extract_and_save_embeddings_baselines(args.pretrain)

@@ -17,6 +17,7 @@ from src.benchmark.baseline.extract_feature import (
 
 # Directories
 data_dir = "datasets/ZCHSound/"
+int_to_label = {"0": "ASD", "1": "NORMAL", "2": "PDA", "3": "PFO", "4": "VSD"}
 
 
 def get_labels_from_csv(path):
@@ -33,8 +34,7 @@ def get_labels_from_csv(path):
             label_set.add(diagnosis)
 
     # Create label mappings
-    label_to_int = {label: idx for idx, label in enumerate(sorted(label_set))}
-    int_to_label = {idx: label for label, idx in label_to_int.items()}
+    label_to_int = {label: idx for idx, label in int_to_label.items()}
 
     # Save mappings
     with open(feature_dir + "label_to_int.json", "w") as f:
