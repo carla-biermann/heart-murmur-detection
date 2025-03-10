@@ -60,6 +60,9 @@ def read_data():
         split = "train" if split == "training" else split
         audio_splits.extend([split] * len(files))
 
+    murmurs = np.array(murmurs, dtype=np.int32)
+    outcomes = np.array(outcomes, dtype=np.int32)
+
     np.save(feature_dir + "sound_dir_loc.npy", np.array(sound_files))
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "murmurs.npy", murmurs)
