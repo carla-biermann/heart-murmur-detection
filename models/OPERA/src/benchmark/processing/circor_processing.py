@@ -57,6 +57,7 @@ def read_data():
 
         split = dir.split("_")[0]
         split = "val" if split == "validation" else split
+        split = "train" if split == "training" else split
         audio_splits.extend([split] * len(files))
 
     np.save(feature_dir + "sound_dir_loc.npy", np.array(sound_files))
