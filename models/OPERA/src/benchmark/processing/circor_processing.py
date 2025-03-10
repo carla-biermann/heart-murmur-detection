@@ -29,7 +29,7 @@ if not os.path.exists(data_dir):
 
 
 def get_labels_from_csv():
-    """Read labels from ZCHSound CSV file and create mappings."""
+    """Read labels from Circor CSV file and create mappings."""
     file_ids, murmurs, outcomes = [], [], []
 
     with open(data_dir + "training_data.csv", "r") as csvfile:

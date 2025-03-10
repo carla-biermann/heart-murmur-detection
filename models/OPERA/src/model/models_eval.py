@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torchaudio
 from torch.nn import functional as F
-from torchmetrics import AUROC, Accuracy, Specificity, Recall
+from torchmetrics import AUROC, Accuracy, Specificity, Recall, F1Score
 import wandb
 
 
@@ -687,11 +687,13 @@ class LinearHead(pl.LightningModule):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.metrics = {}
+
         available_metrics = {
             "accuracy": Accuracy(task="multiclass", num_classes=classes).to(device),
             "auroc": AUROC(task="multiclass", num_classes=classes).to(device),
             "specificity": Specificity(task="multiclass", num_classes=classes).to(device),
             "recall": Recall(task="multiclass", num_classes=classes).to(device),
+            "F1": F1Score(task="multiclass", num_classes=classes).to(device)
         }
 
         if metrics:

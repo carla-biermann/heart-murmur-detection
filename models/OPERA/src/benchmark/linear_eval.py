@@ -1441,7 +1441,7 @@ def linear_evaluation_zchsound(
 
 
 def linear_evaluation_pascal(
-    n_cls=5,
+    n_cls=4,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1460,6 +1460,9 @@ def linear_evaluation_pascal(
         "head",
         head,
     )
+
+    if dataset == "B":
+        n_cls = 3
 
     wandb_logger = WandbLogger(
         project=f"PASCAL-{dataset}-Evaluation",
@@ -1562,7 +1565,7 @@ def linear_evaluation_pascal(
 
 
 def linear_evaluation_physionet16(
-    n_cls=5,
+    n_cls=2,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1682,7 +1685,7 @@ def linear_evaluation_physionet16(
 
 
 def linear_evaluation_circor(
-    n_cls=5,
+    n_cls=3,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1944,6 +1947,7 @@ if __name__ == "__main__":
                 )
             elif args.task == "pascal_A" or args.task == "pascal_B":
                 auc = linear_evaluation_pascal(
+                    n_cls = 4 if args.task == "pascal_A" else 3,
                     use_feature=feature,
                     l2_strength=args.l2_strength,
                     lr=args.lr,
