@@ -1321,7 +1321,6 @@ def linear_evaluation_nosemic(
 
 
 def linear_evaluation_zchsound(
-    n_cls=5,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1341,24 +1340,6 @@ def linear_evaluation_zchsound(
         head,
     )
 
-    wandb_logger = WandbLogger(
-        project=f"ZCHSound-{data}-Evaluation",
-        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
-        log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "use_feature": use_feature,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-        }
-    )
-
     feature_dir = f"feature/zchsound_{data}_eval/"
 
     y_set = np.load(feature_dir + "train_test_split.npy")
@@ -1368,6 +1349,8 @@ def linear_evaluation_zchsound(
 
     feat_dim = x_data.shape[1]
     print(feat_dim)
+
+    n_cls = len(set(y_label))
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1412,6 +1395,24 @@ def linear_evaluation_zchsound(
         + "-{epoch:02d}-{valid_auc:.2f}",
     )
 
+    wandb_logger = WandbLogger(
+        project=f"ZCHSound-{data}-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
     trainer = pl.Trainer(
         max_epochs=epochs,
         accelerator="gpu",
@@ -1441,7 +1442,6 @@ def linear_evaluation_zchsound(
 
 
 def linear_evaluation_pascal(
-    n_cls=4,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1461,27 +1461,6 @@ def linear_evaluation_pascal(
         head,
     )
 
-    if dataset == "B":
-        n_cls = 3
-
-    wandb_logger = WandbLogger(
-        project=f"PASCAL-{dataset}-Evaluation",
-        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
-        log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "use_feature": use_feature,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-        }
-    )
-
     feature_dir = f"feature/pascal_eval_{dataset}/"
 
     y_set = np.load(feature_dir + "train_test_split.npy")
@@ -1491,6 +1470,8 @@ def linear_evaluation_pascal(
 
     feat_dim = x_data.shape[1]
     print(feat_dim)
+
+    n_cls = len(set(y_label))
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1535,6 +1516,24 @@ def linear_evaluation_pascal(
         + "-{epoch:02d}-{valid_auc:.2f}",
     )
 
+    wandb_logger = WandbLogger(
+        project=f"PASCAL-{dataset}-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
     trainer = pl.Trainer(
         max_epochs=epochs,
         accelerator="gpu",
@@ -1565,7 +1564,6 @@ def linear_evaluation_pascal(
 
 
 def linear_evaluation_physionet16(
-    n_cls=2,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
@@ -1584,24 +1582,6 @@ def linear_evaluation_physionet16(
         head,
     )
 
-    wandb_logger = WandbLogger(
-        project="Physionet2016-Evaluation",
-        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
-        log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "use_feature": use_feature,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-        }
-    )
-
     feature_dir = "feature/physionet16_eval/"
 
     y_set = np.load(feature_dir + "train_test_split.npy")
@@ -1611,6 +1591,8 @@ def linear_evaluation_physionet16(
 
     feat_dim = x_data.shape[1]
     print(feat_dim)
+
+    n_cls = len(set(y_label))
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1655,6 +1637,24 @@ def linear_evaluation_physionet16(
         + "-{epoch:02d}-{valid_auc:.2f}",
     )
 
+    wandb_logger = WandbLogger(
+        project="Physionet2016-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
     trainer = pl.Trainer(
         max_epochs=epochs,
         accelerator="gpu",
@@ -1685,13 +1685,13 @@ def linear_evaluation_physionet16(
 
 
 def linear_evaluation_circor(
-    n_cls=3,
     use_feature="operaCE1280",
     l2_strength=1e-5,
     epochs=64,
     batch_size=32,
     lr=1e-4,
     head="linear",
+    task="murmurs"
 ):
     print("*" * 48)
     print(
@@ -1704,33 +1704,17 @@ def linear_evaluation_circor(
         head,
     )
 
-    wandb_logger = WandbLogger(
-        project="Circor-Evaluation",
-        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
-        log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "use_feature": use_feature,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-        }
-    )
-
     feature_dir = "feature/circor_eval/"
 
     y_set = np.load(feature_dir + "train_test_split.npy")
-    y_label = np.load(feature_dir + "murmurs.npy")
+    y_label = np.load(feature_dir + f"{task}.npy")
     print(collections.Counter(y_label))
     x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
 
     feat_dim = x_data.shape[1]
     print(feat_dim)
+
+    n_cls = len(set(y_label))
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1773,6 +1757,24 @@ def linear_evaluation_circor(
             [head, use_feature, str(batch_size), str(lr), str(epochs), str(l2_strength)]
         )
         + "-{epoch:02d}-{valid_auc:.2f}",
+    )
+
+    wandb_logger = WandbLogger(
+        project=f"Circor-{task}-Evaluation",
+        name=f"{head}_{use_feature}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "use_feature": use_feature,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
     )
 
     trainer = pl.Trainer(
@@ -1947,7 +1949,6 @@ if __name__ == "__main__":
                 )
             elif args.task == "pascal_A" or args.task == "pascal_B":
                 auc = linear_evaluation_pascal(
-                    n_cls = 4 if args.task == "pascal_A" else 3,
                     use_feature=feature,
                     l2_strength=args.l2_strength,
                     lr=args.lr,
@@ -1955,13 +1956,14 @@ if __name__ == "__main__":
                     epochs=32,
                     dataset=args.task.split("_")[1],
                 )
-            elif args.task == "circor":
+            elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
                 auc = linear_evaluation_circor(
                     use_feature=feature,
                     l2_strength=args.l2_strength,
                     lr=args.lr,
                     head=args.head,
                     epochs=32,
+                    task=args.task.split("_")[1],
                 )
             elif args.task == "physionet16":
                 auc = linear_evaluation_physionet16(
