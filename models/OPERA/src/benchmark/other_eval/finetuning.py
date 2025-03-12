@@ -7,7 +7,7 @@ import torch
 from lightning.pytorch import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
@@ -826,6 +826,255 @@ def finetune_icbhidisease(
     return auc
 
 
+def finetune_circor(
+    pretrain="operaCE",
+    l2_strength=1e-4,
+    epochs=64,
+    batch_size=64,
+    lr=1e-4,
+    head="linear",
+    feat_dim=1280,
+    task="murmurs"
+):
+    print("*" * 48)
+    print(
+        "training dataset CIRCOR from model pretrained on",
+        pretrain,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+
+    feature_dir = "feature/circor_eval/"
+
+    n_cls = len(set(np.load(feature_dir + f"{task}.npy")))
+
+    from_audio = False
+    if pretrain == "audiomae":
+        from src.benchmark.baseline.audioMAE.models_mae import (
+            vit_base_patch16,
+        )
+
+        if not os.path.exists(feature_dir + "fbank_audiomae.npy"):
+            from src.util import get_split_signal_fbank_pad
+
+            sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+            x_data = []
+            for audio_file in sound_dir_loc:
+                data = get_split_signal_fbank_pad(
+                    "", audio_file[:-4], spectrogram=True, input_sec=10, trim_tail=False
+                )[0]
+                # print(data.shape)
+                x_data.append(data)
+            x_data = np.array(x_data)
+            print(x_data.shape)
+            np.save(feature_dir + "fbank_audiomae.npy", x_data)
+
+        x_data = np.load(feature_dir + "fbank_audiomae.npy")
+
+        encoder_path = "src/benchmark/baseline/audioMAE/ViTB_pretrained.pth"
+        ckpt = torch.load(encoder_path)
+        net = vit_base_patch16(
+            in_chans=1,
+            img_size=(1024, 128),
+            drop_path_rate=0.1,
+            global_pool=True,
+            mask_2d=False,
+            use_custom_patch=False,
+        )
+
+        net.load_state_dict(ckpt["model"], strict=False)
+
+        model = AudioClassifierAudioMAE(
+            net=net,
+            head=head,
+            classes=n_cls,
+            lr=lr,
+            l2_strength=l2_strength,
+            feat_dim=feat_dim,
+        )
+
+    elif pretrain == "clap":
+        from src.benchmark.baseline.msclap import CLAP
+
+        audio_files = np.load(feature_dir + "sound_dir_loc.npy")
+        x_data = np.array(audio_files)
+        clap_model = CLAP(version="2022", use_cuda=True)
+        net = clap_model.clap.audio_encoder
+        model = AudioClassifierCLAP(
+            net=net,
+            head=head,
+            classes=n_cls,
+            lr=lr,
+            l2_strength=l2_strength,
+            feat_dim=feat_dim,
+        )
+        from_audio = True
+
+    else:
+        if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
+            from src.util import get_split_signal_librosa
+
+            sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+            x_data = []
+            for audio_file in sound_dir_loc:
+                data = get_split_signal_librosa(
+                    "",
+                    audio_file[:-4],
+                    spectrogram=True,
+                    input_sec=8.18,
+                    trim_tail=False,
+                )[0]
+                # print(data.shape)
+                x_data.append(data)
+            x_data = np.array(x_data)
+            np.save(feature_dir + "spectrogram_pad8.npy", x_data)
+
+        x_data = np.load(feature_dir + "spectrogram_pad8.npy")
+        pretrained_model = initialize_pretrained_model(pretrain)
+        if pretrain == "null":
+            lr = 1e-4
+            epochs = 64
+            print("-" * 20 + "training from scratch")
+        else:
+            encoder_path = get_encoder_path(pretrain)
+            print("loading weights from", encoder_path)
+            ckpt = torch.load(encoder_path)
+            pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+
+        if "mae" in pretrain or "GT" in pretrain:
+            model = AudioClassifierAudioMAE(
+                net=pretrained_model,
+                classes=n_cls,
+                lr=lr,
+                l2_strength=l2_strength,
+                feat_dim=feat_dim,
+            )
+        else:
+            freeze_encoder = "early" if pretrain == "operaCE" else "none"
+            net = pretrained_model.encoder
+            model = AudioClassifier(
+                net=net,
+                head=head,
+                classes=n_cls,
+                lr=lr,
+                l2_strength=l2_strength,
+                feat_dim=feat_dim,
+                freeze_encoder=freeze_encoder,
+            )
+
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + f"{task}.npy")
+    print(collections.Counter(y_label))
+    print(collections.Counter(y_set))
+
+    # mask = (y_label == "Healthy") | (y_label == "COPD")
+    # y_set = y_set[mask]
+    # x_data = x_data[mask]
+
+    x_data_train = x_data[y_set == "train"]
+    y_label_train = y_label[y_set == "train"]
+    x_data_vad = x_data[y_set == "val"]
+    y_label_vad = y_label[y_set == "val"]
+    x_data_test = x_data[y_set == "test"]
+    y_label_test = y_label[y_set == "test"]
+
+    print(collections.Counter(y_label_train))
+    print(collections.Counter(y_label_vad))
+    print(collections.Counter(y_label_test))
+
+    train_data = AudioDataset(
+        (x_data_train, y_label_train),
+        augment=False,
+        max_len=False,
+        from_audio=from_audio,
+    )
+    test_data = AudioDataset(
+        (x_data_test, y_label_test), augment=False, max_len=False, from_audio=from_audio
+    )
+    val_data = AudioDataset(
+        (x_data_vad, y_label_vad), augment=False, max_len=False, from_audio=from_audio
+    )
+
+    train_loader = DataLoader(
+        train_data, batch_size=batch_size, num_workers=2, shuffle=True
+    )
+    val_loader = DataLoader(
+        val_data, batch_size=batch_size, num_workers=2, shuffle=True
+    )
+    test_loader = DataLoader(
+        test_data, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+
+    wandb_logger = WandbLogger(
+        project=f"Circor-{task}-Finetune",
+        name=f"{head}_{pretrain}_bs{batch_size}_lr{lr}_epochs{epochs}",
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "pretrain": pretrain,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+        }
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="valid_auc",
+        mode="max",
+        dirpath="cks/finetune/circor/",
+        filename="_".join(
+            [
+                "finetuning",
+                head,
+                pretrain,
+                str(batch_size),
+                str(lr),
+                str(epochs),
+                str(l2_strength),
+            ]
+        )
+        + "-{epoch:02d}-{valid_auc:.2f}",
+        every_n_epochs=3,
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=epochs,
+        accelerator="gpu",
+        devices=1,
+        logger=wandb_logger,
+        callbacks=[DecayLearningRate(), checkpoint_callback],
+        gradient_clip_val=1.0,
+        log_every_n_steps=1,
+        enable_progress_bar=False,
+    )
+    trainer.fit(model, train_loader, val_loader)
+
+    trainer.test(dataloaders=train_loader)
+    trainer.test(dataloaders=val_loader)
+    test_res = trainer.test(dataloaders=test_loader)
+    auc = test_res[0]["test_auc"]
+    print(
+        "finished training dataset CIRCOR from model pretrained on",
+        pretrain,
+        "with l2_strength",
+        l2_strength,
+        "lr",
+        lr,
+        "head",
+        head,
+    )
+    return auc
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -884,6 +1133,14 @@ if __name__ == "__main__":
                     epochs=64,
                     l2_strength=1e-4,
                     feat_dim=args.dim,
+                )
+            elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
+                auc = finetune_circor(
+                    pretrain=args.pretrain,
+                    epochs=1,
+                    l2_strength=1e-4,
+                    feat_dim=args.dim,
+                    task=args.task.split("_")[1]
                 )
             auc_scores.append(auc)
         print("=" * 48)
