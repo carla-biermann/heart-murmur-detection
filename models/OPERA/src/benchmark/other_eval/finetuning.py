@@ -1030,7 +1030,7 @@ def finetune_circor(
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
         mode="max",
-        dirpath="cks/finetune/circor/",
+        dirpath=f"cks/finetune/circor_{task}/",
         filename="_".join(
             [
                 "finetuning",
@@ -1137,7 +1137,7 @@ if __name__ == "__main__":
             elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
                 auc = finetune_circor(
                     pretrain=args.pretrain,
-                    epochs=1,
+                    epochs=3,
                     l2_strength=1e-4,
                     feat_dim=args.dim,
                     task=args.task.split("_")[1]

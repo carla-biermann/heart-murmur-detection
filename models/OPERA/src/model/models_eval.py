@@ -541,7 +541,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         # print(y_hat, y)
 
         # loss = F.cross_entropy(y_hat, y)
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y.long())
         self.log("train_loss", loss)
 
         # Apply L2 regularization on head
@@ -575,7 +575,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         # print(y_hat, y)
 
         # loss = F.cross_entropy(y_hat, y)
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y.long())
 
         probabilities = F.softmax(y_hat, dim=1)
 
@@ -595,7 +595,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         y_hat = self(x)
 
         # loss = F.cross_entropy(y_hat, y)
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y.long())
 
         probabilities = F.softmax(y_hat, dim=1)
 
