@@ -14,7 +14,8 @@ from tqdm import tqdm
 
 from src.model.models_eval import LinearHead, LinearHeadR
 from src.util import downsample_balanced_dataset, train_test_split_from_list, get_weights_tensor
-
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 class FeatureDataset(torch.utils.data.Dataset):
     def __init__(self, data):
@@ -124,7 +125,7 @@ def linear_evaluation_covid19sounds(
         y_label_test = y_label[y_set == 2]
     else:
         raise NotImplementedError(
-            f"Task not implemented: Covid-19 sounds task {task}, please check the args."
+            f"Task not implemented: Covid-19 sounds task {task}, please check the config."
         )
 
     print(collections.Counter(y_label_train))
@@ -1502,194 +1503,173 @@ def linear_evaluation_heart(
     wandb.finish()
     return auc
 
+@hydra.main(config_path="configs", config_name="linear_eval_config", version_base=None)
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    # these args need to be entered according to tasks
-    parser.add_argument("--task", type=str, default="covid19sounds")
-    parser.add_argument("--label", type=str, default="smoker")  # prediction target
-    parser.add_argument("--modality", type=str, default="cough")
-    parser.add_argument("--pretrain", type=str, default="operaCE")
-    parser.add_argument("--dim", type=int, default=1280)
-    parser.add_argument("--LOOCV", type=bool, default=False)
-
-    # these can follow default
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--l2_strength", type=float, default=1e-5)
-    parser.add_argument("--head", type=str, default="linear")
-    parser.add_argument(
-        "--mapgoogle", type=bool, default=False
-    )  # align test set with HeAR
-    parser.add_argument("--n_run", type=int, default=5)
-
-    args = parser.parse_args()
-
-    feature = args.pretrain
+    feature = cfg.pretrain
     if (
         feature not in ["vggish", "opensmile", "clap", "audiomae", "hear",  "clap2023"]
         and "finetuned" not in feature
     ):  # baselines
-        feature += str(args.dim)
+        feature += str(cfg.dim)
 
-    if not args.LOOCV:
+    if not cfg.LOOCV:
         # report mean and std for 5 runs with random seeds
         auc_scores = []
-        for seed in range(args.n_run):
+        for seed in range(cfg.n_run):
             # fix seeds for reproducibility
             np.random.seed(seed)
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
-            if args.task == "covid19sounds":
+            if cfg.task == "covid19sounds":
                 auc = linear_evaluation_covid19sounds(
                     1,
                     feature,
-                    modality=args.modality,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    modality=cfg.modality,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                 )
-            elif args.task == "icbhidisease":
+            elif cfg.task == "icbhidisease":
                 auc = linear_evaluation_icbhidisease(
                     use_feature=feature,
                     epochs=64,
                     batch_size=32,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                 )
-            elif args.task == "kauh":
+            elif cfg.task == "kauh":
                 auc = linear_evaluation_kauh(
                     use_feature=feature,
                     epochs=50,
                     batch_size=32,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                 )
-            elif args.task == "coswarasmoker":
+            elif cfg.task == "coswarasmoker":
                 auc = linear_evaluation_coswara(
                     use_feature=feature,
                     epochs=64,
-                    l2_strength=args.l2_strength,
+                    l2_strength=cfg.l2_strength,
                     batch_size=32,
-                    lr=args.lr,
-                    modality=args.modality,
+                    lr=cfg.lr,
+                    modality=cfg.modality,
                     label="smoker",
-                    head=args.head,
+                    head=cfg.head,
                 )
-            elif args.task == "coswarasex":
+            elif cfg.task == "coswarasex":
                 auc = linear_evaluation_coswara(
                     use_feature=feature,
                     epochs=64,
-                    l2_strength=args.l2_strength,
+                    l2_strength=cfg.l2_strength,
                     batch_size=32,
-                    lr=args.lr,
-                    modality=args.modality,
+                    lr=cfg.lr,
+                    modality=cfg.modality,
                     label="sex",
-                    head=args.head,
+                    head=cfg.head,
                 )
-            elif args.task == "copd":
+            elif cfg.task == "copd":
                 auc = linear_evaluation_copd(
                     use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                     epochs=64,
                 )
-            elif args.task == "coughvidcovid":
+            elif cfg.task == "coughvidcovid":
                 auc = linear_evaluation_coughvid(
                     use_feature=feature,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
                     batch_size=64,
                     label="covid",
-                    head=args.head,
+                    head=cfg.head,
                 )
-            elif args.task == "coughvidsex":
+            elif cfg.task == "coughvidsex":
                 auc = linear_evaluation_coughvid(
                     use_feature=feature,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
                     batch_size=64,
                     label="gender",
-                    head=args.head,
+                    head=cfg.head,
                 )
-            elif args.task == "coviduk":
+            elif cfg.task == "coviduk":
                 auc = linear_evaluation_coviduk(
                     use_feature=feature,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
                     batch_size=64,
-                    modality=args.modality,
-                    head=args.head,
+                    modality=cfg.modality,
+                    head=cfg.head,
                 )
-            elif args.task == "snoring":
+            elif cfg.task == "snoring":
                 auc = linear_evaluation_ssbpr(
                     use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                     epochs=32,
                     seed=seed,
                 )
-            elif args.task == "zchsound_clean" or args.task == "zchsound_noisy":
-                data_task_list = args.task.split("_")
+            elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy":
+                data_task_list = cfg.task.split("_")
                 auc = linear_evaluation_heart(
                     seed=seed,
                     use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
+                    epochs=64,
+                    dataset_name=data_task_list[0],
+                    task=data_task_list[1],
+                    feature_dir=f"feature/{cfg.task}_eval/",
+                    labels_filename="labels.npy",
+                )
+            elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
+                data_task_list = cfg.task.split("_")
+                auc = linear_evaluation_heart(
+                    seed=seed,
+                    use_feature=feature,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                     epochs=64,
                     dataset_name=data_task_list[0],
                     task=data_task_list[1],
                     feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                 )
-            elif args.task == "pascal_A" or args.task == "pascal_B":
-                data_task_list = args.task.split("_")
+            elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
+                data_task_list = cfg.task.split("_")
                 auc = linear_evaluation_heart(
                     seed=seed,
                     use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
-                    epochs=64,
-                    dataset_name=data_task_list[0],
-                    task=data_task_list[1],
-                    feature_dir=f"feature/{args.task}_eval/",
-                    labels_filename="labels.npy",
-                )
-            elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
-                data_task_list = args.task.split("_")
-                auc = linear_evaluation_heart(
-                    seed=seed,
-                    use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                     epochs=64,
                     dataset_name=data_task_list[0],
                     task=data_task_list[1],
                     feature_dir="feature/circor_eval/",
                     labels_filename=f"{data_task_list[1]}.npy",
                 )
-            elif args.task == "physionet16":
+            elif cfg.task == "physionet16":
                 auc = linear_evaluation_heart(
                     seed=seed,
                     use_feature=feature,
-                    l2_strength=args.l2_strength,
-                    lr=args.lr,
-                    head=args.head,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
                     epochs=64,
-                    dataset_name=args.task,
+                    dataset_name=cfg.task,
                     task="",
                     feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
@@ -1698,7 +1678,7 @@ if __name__ == "__main__":
         print("=" * 48)
         print(auc_scores)
         print(
-            f"Five times mean task {args.task} feature {feature} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
+            f"Five times mean task {cfg.task} feature {feature} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)
     else:
@@ -1708,7 +1688,7 @@ if __name__ == "__main__":
         torch.manual_seed(0)
         torch.cuda.manual_seed(0)
 
-        if args.task == "spirometry":
+        if cfg.task == "spirometry":
             maes, mapes = linear_evaluation_mmlung(
                 use_feature=feature,
                 method="LOOCV",
@@ -1716,12 +1696,12 @@ if __name__ == "__main__":
                 epochs=64,
                 lr=1e-1,
                 batch_size=64,
-                modality=args.modality,
-                label=args.label,
-                head=args.head,
+                modality=cfg.modality,
+                label=cfg.label,
+                head=cfg.head,
             )
 
-        if args.task == "rr":
+        if cfg.task == "rr":
             maes, mapes = linear_evaluation_nosemic(
                 use_feature=feature,
                 method="LOOCV",
@@ -1729,16 +1709,19 @@ if __name__ == "__main__":
                 epochs=64,
                 batch_size=64,
                 lr=1e-4,
-                head=args.head,
+                head=cfg.head,
             )
 
         print("=" * 48)
         print(maes)
         print(mapes)
         print(
-            f"Five times mean task {args.task} feature {feature} results: MAE mean {np.mean(maes):.3f} ± {np.std(maes):.3f}"
+            f"Five times mean task {cfg.task} feature {feature} results: MAE mean {np.mean(maes):.3f} ± {np.std(maes):.3f}"
         )
         print(
-            f"Five times mean task {args.task} feature {feature} results: MAPE mean {np.mean(mapes):.3f} ± {np.std(mapes):.3f}"
+            f"Five times mean task {cfg.task} feature {feature} results: MAPE mean {np.mean(mapes):.3f} ± {np.std(mapes):.3f}"
         )
         print("=" * 48)
+
+if __name__ == '__main__':
+    main()
