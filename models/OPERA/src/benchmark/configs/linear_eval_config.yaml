@@ -1,0 +1,12 @@
+task: covid19sounds
+label: smoker
+modality: cough
+pretrain: operaCE
+dim: 1280
+lr: 1e-4
+l2_strength: 1e-5
+head: linear
+n_run: 5
+LOOCV: false
+epochs: 64
+batch_size: 32
