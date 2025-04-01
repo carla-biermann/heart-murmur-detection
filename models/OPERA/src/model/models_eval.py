@@ -763,14 +763,6 @@ class LinearHead(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        # Compute and log selected metrics
-        for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probabilities if metric_name == "auroc" else predicted, y
-            )
-            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
-            wandb.log({f"val_{metric_name}": metric_value.item()})
-
         self.validation_step_outputs.append(
             (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
         )
@@ -794,14 +786,6 @@ class LinearHead(pl.LightningModule):
             (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
         )
 
-        # Compute and log selected metrics
-        for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probabilities if metric_name == "auroc" else predicted, y
-            )
-            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
-            wandb.log({f"test_{metric_name}": metric_value.item()})
-
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
@@ -813,6 +797,14 @@ class LinearHead(pl.LightningModule):
 
         # print("valid_auc", auc)
         self.log("valid_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                torch.from_numpy(probs) if metric_name == "auroc" else torch.from_numpy(predicted), torch.from_numpy(y)
+            )
+            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"val_{metric_name}": metric_value.item()})
 
         self.validation_step_outputs.clear()
 
@@ -827,6 +819,14 @@ class LinearHead(pl.LightningModule):
 
         print("test_auc", auc)
         self.log("test_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                torch.from_numpy(probs) if metric_name == "auroc" else torch.from_numpy(predicted), torch.from_numpy(y)
+            )
+            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"test_{metric_name}": metric_value.item()})
 
         self.test_step_outputs.clear()
         return auc
