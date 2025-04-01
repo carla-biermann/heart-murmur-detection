@@ -1,5 +1,6 @@
 import collections
 import os
+import time
 
 import numpy as np
 import pytorch_lightning as pl
@@ -825,8 +826,13 @@ def finetune_icbhidisease(
     )
     return auc
 
+def get_wandb_name(use_feature, data, head):
+  s=time.gmtime(time.time())
+  return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{use_feature}-{data}-{head}"
 
-def finetune_circor(
+
+def finetune_heart(
+    seed,
     pretrain="operaCE",
     l2_strength=1e-4,
     epochs=64,
@@ -834,11 +840,39 @@ def finetune_circor(
     lr=1e-4,
     head="linear",
     feat_dim=1280,
-    task="murmurs"
+    dataset_name="circor",
+    task="murmurs",
+    feature_dir="feature/circor_eval/",
+    labels_filename="murmurs.npy",
+    freeze_encoder="none",  # Control freezing
 ):
+
+    n_cls = len(set(np.load(feature_dir + labels_filename)))
+
+    wandb_logger = WandbLogger(
+        project="Heart-Sound-Analysis-FT",
+        name=get_wandb_name(pretrain, f"{dataset_name}-{task}", head),
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "pretrain": pretrain,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+            "seed": seed,
+            "dataset": dataset_name,
+            "task": task,
+        }
+    )
+
     print("*" * 48)
     print(
-        "training dataset CIRCOR from model pretrained on",
+        f"training dataset {dataset_name} {task} from model pretrained on",
         pretrain,
         "with l2_strength",
         l2_strength,
@@ -847,10 +881,6 @@ def finetune_circor(
         "head",
         head,
     )
-
-    feature_dir = "feature/circor_eval/"
-
-    n_cls = len(set(np.load(feature_dir + f"{task}.npy")))
 
     from_audio = False
     if pretrain == "audiomae":
@@ -875,7 +905,7 @@ def finetune_circor(
 
         x_data = np.load(feature_dir + "fbank_audiomae.npy")
 
-        encoder_path = "src/benchmark/baseline/audioMAE/ViTB_pretrained.pth"
+        encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth"
         ckpt = torch.load(encoder_path)
         net = vit_base_patch16(
             in_chans=1,
@@ -966,14 +996,12 @@ def finetune_circor(
                 freeze_encoder=freeze_encoder,
             )
 
+    wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder})
+
     y_set = np.load(feature_dir + "train_test_split.npy")
-    y_label = np.load(feature_dir + f"{task}.npy")
+    y_label = np.load(feature_dir + labels_filename)
     print(collections.Counter(y_label))
     print(collections.Counter(y_set))
-
-    # mask = (y_label == "Healthy") | (y_label == "COPD")
-    # y_set = y_set[mask]
-    # x_data = x_data[mask]
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1003,34 +1031,18 @@ def finetune_circor(
         train_data, batch_size=batch_size, num_workers=2, shuffle=True
     )
     val_loader = DataLoader(
-        val_data, batch_size=batch_size, num_workers=2, shuffle=True
+        val_data, batch_size=batch_size, num_workers=2, shuffle=False
     )
     test_loader = DataLoader(
-        test_data, batch_size=batch_size, shuffle=True, num_workers=2
+        test_data, batch_size=batch_size, shuffle=False, num_workers=2
     )
 
-    wandb_logger = WandbLogger(
-        project=f"Circor-{task}-Finetune",
-        name=f"{head}_{pretrain}_bs{batch_size}_lr{lr}_epochs{epochs}",
-        log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "pretrain": pretrain,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-        }
-    )
+    ck_path = f"cks/finetune/{dataset_name}_{task}/" if task else f"cks/finetune/{dataset_name}"
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
         mode="max",
-        dirpath=f"cks/finetune/circor_{task}/",
+        dirpath=ck_path,
         filename="_".join(
             [
                 "finetuning",
@@ -1046,24 +1058,31 @@ def finetune_circor(
         every_n_epochs=3,
     )
 
+    early_stop_callback = EarlyStopping(
+        monitor="valid_auc", min_delta=0.001, patience=10, verbose=True, mode="max"
+    )
+
     trainer = pl.Trainer(
         max_epochs=epochs,
         accelerator="gpu",
         devices=1,
         logger=wandb_logger,
-        callbacks=[DecayLearningRate(), checkpoint_callback],
+        callbacks=[DecayLearningRate(), checkpoint_callback, early_stop_callback],
         gradient_clip_val=1.0,
         log_every_n_steps=1,
         enable_progress_bar=False,
     )
     trainer.fit(model, train_loader, val_loader)
 
+    if trainer.should_stop:
+        print("Early stopping triggered. Training stopped.")
+
     trainer.test(dataloaders=train_loader)
     trainer.test(dataloaders=val_loader)
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
-        "finished training dataset CIRCOR from model pretrained on",
+        f"finished training dataset {dataset_name} {task} from model pretrained on",
         pretrain,
         "with l2_strength",
         l2_strength,
@@ -1135,12 +1154,55 @@ if __name__ == "__main__":
                     feat_dim=args.dim,
                 )
             elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
-                auc = finetune_circor(
+                task = args.task.split("_")[1]
+                auc = finetune_heart(
                     pretrain=args.pretrain,
                     epochs=3,
-                    l2_strength=1e-4,
+                    l2_strength=args.l2_strength,
                     feat_dim=args.dim,
-                    task=args.task.split("_")[1]
+                    dataset_name="circor",
+                    task=task,
+                    feature_dir="feature/circor_eval/",
+                    labels_filename=f"{task}.npy",
+                    seed=seed,
+                )
+            elif args.task == "zchsound_clean" or args.task == "zchsound_noisy":
+                task = args.task.split("_")[1]
+                auc = finetune_heart(
+                    pretrain=args.pretrain,
+                    epochs=64,
+                    l2_strength=args.l2_strength,
+                    feat_dim=args.dim,
+                    dataset_name="zchsound",
+                    task=task,
+                    feature_dir=f"feature/{args.task}_eval/",
+                    labels_filename="labels.npy",
+                    seed=seed,
+                )
+            elif args.task == "pascal_A" or args.task == "pascal_B":
+                task = args.task.split("_")[1]
+                auc = finetune_heart(
+                    pretrain=args.pretrain,
+                    epochs=64,
+                    l2_strength=args.l2_strength,
+                    feat_dim=args.dim,
+                    dataset_name="pascal",
+                    task=task,
+                    feature_dir=f"feature/pascal_eval_{task}/",
+                    labels_filename="labels.npy",
+                    seed=seed,
+                )
+            elif args.task == "physionet16":
+                auc = finetune_heart(
+                    pretrain=args.pretrain,
+                    epochs=64,
+                    l2_strength=args.l2_strength,
+                    feat_dim=args.dim,
+                    dataset_name="physionet16",
+                    task="",
+                    feature_dir=f"feature/physionet16_eval/",
+                    labels_filename="labels.npy",
+                    seed=seed,
                 )
             auc_scores.append(auc)
         print("=" * 48)
