@@ -38,3 +38,6 @@ launch.json
 # Pycache
 *.pyc
 __pycache__/
+
+# Hydra
+models/OPERA/multirun/*
