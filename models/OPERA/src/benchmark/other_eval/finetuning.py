@@ -11,6 +11,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+import wandb
 
 from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
 from src.model.models_eval import (
@@ -1095,6 +1096,7 @@ def finetune_heart(
         "head",
         head,
     )
+    wandb.finish()
     return auc
 
 
