@@ -1,0 +1,35 @@
+# defaults:
+# - override /hydra/launcher: joblib
+
+# defaults:
+# - override /hydra/launcher: submitit_slurm
+
+# hydra:
+#   callbacks:
+#     log_job_return:
+#       target: hydra.experimental.callbacks.LogJobReturnCallback
+#   launcher:
+#     nodes: 1
+#     gpus_per_node: 1
+#     timeout_min: 2000
+#     constraint:
+#     partition: ampere
+#     #qos: INTR # interactive
+#     name: ${hydra.run.dir}/${hydra.job.override_dirname}
+#     max_num_timeout: 3
+#     stderr_to_stdout: true
+#     account: COMPUTERLAB-SL2-GPU
+
+task: icbhidisease
+label: smoker
+modality: cough
+pretrain: operaCE
+dim: 1280
+gridsearch: False
+lr: 1e-4 # not used if gridsearch = True
+l2_strength: 1e-5 # not used if gridsearch = True
+head: linear
+n_run: 5
+LOOCV: False
+mapgoogle: False
+avgprob: False
