@@ -8,8 +8,26 @@ import torch.nn as nn
 import torchaudio
 from torch.nn import functional as F
 from torchmetrics import AUROC
-from torchmetrics.classification import MulticlassAUROC, MulticlassF1Score, MulticlassAccuracy, MulticlassSpecificity, MulticlassRecall
+from torchmetrics.classification import MulticlassAUROC, MulticlassF1Score, MulticlassAccuracy, MulticlassSpecificity, MulticlassRecall, MulticlassPrecision
 import wandb
+
+
+def initialize_metrics(classes, device, metrics):
+    available_metrics = {
+        "accuracy": MulticlassAccuracy(num_classes=classes, average="weighted").to(device),
+        "auroc": MulticlassAUROC(num_classes=classes, average="weighted").to(device),
+        "specificity": MulticlassSpecificity(num_classes=classes, average="weighted").to(device),
+        "recall": MulticlassRecall(num_classes=classes, average="weighted").to(device),
+        "precision": MulticlassPrecision(num_classes=classes, average="weighted").to(device),
+        "F1": MulticlassF1Score(num_classes=classes, average="weighted").to(device),
+    }
+    selected_metrics = {}
+    for metric in metrics:
+        if metric in available_metrics:
+            selected_metrics[metric] = available_metrics[metric]
+        else:
+            raise ValueError(f"Unsupported metric: {metric}")
+    return selected_metrics
 
 
 class AudioClassifier(pl.LightningModule):
@@ -23,6 +41,7 @@ class AudioClassifier(pl.LightningModule):
         loss_func=None,
         freeze_encoder="none",
         l2_strength=0.0005,
+        metrics=["auroc"],
     ):
         super().__init__()
         self.net = net
@@ -89,6 +108,9 @@ class AudioClassifier(pl.LightningModule):
         # self.fc.weight.data.normal_(mean=0.0, std=0.01)
         # self.fc.bias.data.zero_()
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.metrics = initialize_metrics(classes, device, metrics)
+
     def forward_feature(self, x):
         return self.net(x)
 
@@ -128,10 +150,20 @@ class AudioClassifier(pl.LightningModule):
         self.log("train_l2_encoder", l2_regularization)
         loss += self.l2_strength_encoder * l2_regularization
 
+        probabilities = F.softmax(y_hat, dim=1)
         _, predicted = torch.max(y_hat, 1)
         acc = (predicted == y).double().mean()
 
         self.log("train_acc", acc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"train_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"train_{metric_name}": metric_value.item()})
+
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
@@ -181,11 +213,25 @@ class AudioClassifier(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         # print("valid_auc", auc)
         self.log("valid_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"val_{metric_name}": metric_value.item()})
 
         self.validation_step_outputs.clear()
 
@@ -195,11 +241,25 @@ class AudioClassifier(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         print("test_auc", auc)
         self.log("test_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"test_{metric_name}": metric_value.item()})
 
         self.test_step_outputs.clear()
         return auc
@@ -219,6 +279,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         loss_func=None,
         freeze_encoder="none",
         l2_strength=0.0005,
+        metrics=["auroc"]
     ):
         super().__init__()
         self.net = net
@@ -250,6 +311,9 @@ class AudioClassifierAudioMAE(pl.LightningModule):
 
         # self.fc.weight.data.normal_(mean=0.0, std=0.01)
         # self.fc.bias.data.zero_()
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.metrics = initialize_metrics(classes, device, metrics)
 
     def forward_feature(self, x):
         return self.net.forward_feature(x)
@@ -284,10 +348,20 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.log("train_l2_encoder", l2_regularization)
         loss += self.l2_strength_encoder * l2_regularization
 
+        probabilities = F.softmax(y_hat, dim=1)
         _, predicted = torch.max(y_hat, 1)
         acc = (predicted == y).double().mean()
 
         self.log("train_acc", acc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"train_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"train_{metric_name}": metric_value.item()})
+
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
@@ -337,11 +411,25 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         # print("valid_auc", auc)
         self.log("valid_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"val_{metric_name}": metric_value.item()})
 
         self.validation_step_outputs.clear()
 
@@ -351,11 +439,25 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         print("test_auc", auc)
         self.log("test_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"test_{metric_name}": metric_value.item()})
 
         self.test_step_outputs.clear()
         return auc
@@ -375,6 +477,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         loss_func=None,
         freeze_encoder="none",
         l2_strength=0.0005,
+        metrics=["auroc"]
     ):
         super().__init__()
         self.net = net
@@ -407,6 +510,9 @@ class AudioClassifierCLAP(pl.LightningModule):
 
         # self.fc.weight.data.normal_(mean=0.0, std=0.01)
         # self.fc.bias.data.zero_()
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.metrics = initialize_metrics(classes, device, metrics)
 
     def default_collate(self, batch):
         r"""Puts each data field into a tensor with outer dimension batch size"""
@@ -562,10 +668,20 @@ class AudioClassifierCLAP(pl.LightningModule):
         self.log("train_l2_encoder", l2_regularization)
         loss += self.l2_strength_encoder * l2_regularization
 
+        probabilities = F.softmax(y_hat, dim=1)
         _, predicted = torch.max(y_hat, 1)
         acc = (predicted == y).double().mean()
 
         self.log("train_acc", acc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probabilities if metric_name == "auroc" else predicted, y
+            )
+            self.log(f"train_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"train_{metric_name}": metric_value.item()})
+
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
@@ -615,11 +731,25 @@ class AudioClassifierCLAP(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         # print("valid_auc", auc)
         self.log("valid_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"val_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"val_{metric_name}": metric_value.item()})
 
         self.validation_step_outputs.clear()
 
@@ -629,11 +759,25 @@ class AudioClassifierCLAP(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
 
         print("test_auc", auc)
         self.log("test_auc", auc)
+
+        # Compute and log selected metrics
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
+            )
+            self.log(f"test_{metric_name}", metric_value, prog_bar=True)
+            wandb.log({f"test_{metric_name}": metric_value.item()})
 
         self.test_step_outputs.clear()
         return auc
@@ -686,23 +830,7 @@ class LinearHead(pl.LightningModule):
         self.test_step_outputs = []
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        self.metrics = {}
-
-        available_metrics = {
-            "accuracy": MulticlassAccuracy(num_classes=classes, average="weighted").to(device),
-            "auroc": MulticlassAUROC(num_classes=classes, average="weighted").to(device),
-            "specificity": MulticlassSpecificity(num_classes=classes, average="weighted").to(device),
-            "recall": MulticlassRecall(num_classes=classes, average="weighted").to(device),
-            "F1": MulticlassF1Score(num_classes=classes, average="weighted").to(device)
-        }
-
-        if metrics:
-            for metric in metrics:
-                if metric in available_metrics:
-                    self.metrics[metric] = available_metrics[metric]
-                else:
-                    raise ValueError(f"Unsupported metric: {metric}")
+        self.metrics = initialize_metrics(classes, device, metrics)
 
     def forward(self, x):
         if self.from_feature:

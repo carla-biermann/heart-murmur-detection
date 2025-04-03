@@ -925,6 +925,7 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
         )
 
     elif pretrain == "clap":
@@ -941,6 +942,7 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
         )
         from_audio = True
 
@@ -982,6 +984,7 @@ def finetune_heart(
                 lr=lr,
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
+                metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
             )
         else:
             freeze_encoder = "early" if pretrain == "operaCE" else "none"
@@ -994,6 +997,7 @@ def finetune_heart(
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
                 freeze_encoder=freeze_encoder,
+                metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
             )
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder})
