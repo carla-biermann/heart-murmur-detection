@@ -268,7 +268,7 @@ def finetune_covid19sounds(
         y_label_test = y_label[y_set == 2]
     else:
         raise NotImplementedError(
-            f"Task not implemented: Covid-19 sounds task {task}, please check the args."
+            f"Task not implemented: Covid-19 sounds task {task}, please check the cfg."
         )
 
     print(collections.Counter(y_label_train))
@@ -1103,8 +1103,8 @@ def finetune_heart(
 
     y_set = np.load(feature_dir + "train_test_split.npy")
     y_label = np.load(feature_dir + labels_filename)
-    print(collections.Counter(y_label))
-    print(collections.Counter(y_set))
+    print(f"Label distribution: {collections.Counter(y_label)}")
+    print(f"Unique labels: {collections.Counter(y_set)}")
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1113,9 +1113,9 @@ def finetune_heart(
     x_data_test = x_data[y_set == "test"]
     y_label_test = y_label[y_set == "test"]
 
-    print(collections.Counter(y_label_train))
-    print(collections.Counter(y_label_vad))
-    print(collections.Counter(y_label_test))
+    print(f"Train set label distributions {collections.Counter(y_label_train)}")
+    print(f"Val set label distributions {collections.Counter(y_label_vad)}")
+    print(f"Test set label distributions {collections.Counter(y_label_test)}")
 
     train_data = AudioDataset(
         (x_data_train, y_label_train),
@@ -1215,110 +1215,91 @@ def finetune_heart(
     return auc
 
 
-if __name__ == "__main__":
-    import argparse
+@hydra.main(config_path="../configs", config_name="finetune_config", version_base=None)
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="icbhidisease")
-    parser.add_argument("--pretrain", type=str, default="operaCE")
-    parser.add_argument("--gridsearch", type=bool, default=False)
-    parser.add_argument(
-        "--lr", type=float, default=1e-4
-    )  # not used if gridsearch = True
-    parser.add_argument(
-        "--l2_strength", type=float, default=1e-5
-    )  # not used if gridsearch = True
-    parser.add_argument("--head", type=str, default="linear")
-    parser.add_argument("--modality", type=str, default="cough")
-    parser.add_argument("--mapgoogle", type=bool, default=False)  # align test set
-    parser.add_argument("--dim", type=int, default=1280)
-    parser.add_argument("--n_run", type=int, default=5)
-    parser.add_argument("--label", type=str, default="smoker")  # align test set
-    parser.add_argument("--LOOCV", type=bool, default=False)
-    parser.add_argument("--avgprob", type=bool, default=False)
-    args = parser.parse_args()
-
-    if not args.LOOCV:
+    if not cfg.LOOCV:
         auc_scores = []
-        for seed in range(args.n_run):
+        for seed in range(cfg.n_run):
             np.random.seed(seed)
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
             seed_everything(seed, workers=True)
-            if args.task == "covid19sounds":
+            if cfg.task == "covid19sounds":
                 auc = finetune_covid19sounds(
                     task=1,
-                    pretrain=args.pretrain,
-                    modality=args.modality,
+                    pretrain=cfg.pretrain,
+                    modality=cfg.modality,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "covid19soundsdownsample":
+            elif cfg.task == "covid19soundsdownsample":
                 auc = finetune_covid19sounds(
                     task="1downsample",
-                    pretrain=args.pretrain,
-                    modality=args.modality,
+                    pretrain=cfg.pretrain,
+                    modality=cfg.modality,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "snoring":
+            elif cfg.task == "snoring":
                 auc = finetune_ssbpr(
-                    pretrain=args.pretrain, epochs=64, feat_dim=args.dim
+                    pretrain=cfg.pretrain, epochs=64, feat_dim=cfg.dim
                 )
-            elif args.task == "icbhidisease":
+            elif cfg.task == "icbhidisease":
                 auc = finetune_icbhidisease(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
-                task = args.task.split("_")[1]
+            elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
+                task = cfg.task.split("_")[1]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="circor",
                     task=task,
                     feature_dir="feature/circor_eval/",
                     labels_filename=f"{task}.npy",
                     seed=seed,
                 )
-            elif args.task == "zchsound_clean" or args.task == "zchsound_noisy":
-                task = args.task.split("_")[1]
+            elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy":
+                task = cfg.task.split("_")[1]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="zchsound",
                     task=task,
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
-            elif args.task == "pascal_A" or args.task == "pascal_B":
-                task = args.task.split("_")[1]
+            elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
+                task = cfg.task.split("_")[1]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="pascal",
                     task=task,
                     feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
-            elif args.task == "physionet16":
+            elif cfg.task == "physionet16":
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="physionet16",
                     task="",
                     feature_dir=f"feature/{args.task}_eval/",
@@ -1329,6 +1310,9 @@ if __name__ == "__main__":
         print("=" * 48)
         print(auc_scores)
         print(
-            f"Five times mean task {args.task} finetuning from {args.pretrain} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
+            f"Five times mean task {cfg.task} finetuning from {cfg.pretrain} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)
+
+if __name__ == '__main__':
+    main()
