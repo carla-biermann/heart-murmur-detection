@@ -7,7 +7,8 @@ import torch
 import torch.nn as nn
 import torchaudio
 from torch.nn import functional as F
-from torchmetrics import AUROC, Accuracy, Specificity, Recall, F1Score
+from torchmetrics import AUROC
+from torchmetrics.classification import MulticlassAUROC, MulticlassF1Score, MulticlassAccuracy, MulticlassSpecificity, MulticlassRecall
 import wandb
 
 
@@ -689,11 +690,11 @@ class LinearHead(pl.LightningModule):
         self.metrics = {}
 
         available_metrics = {
-            "accuracy": Accuracy(task="multiclass", num_classes=classes).to(device),
-            "auroc": AUROC(task="multiclass", num_classes=classes).to(device),
-            "specificity": Specificity(task="multiclass", num_classes=classes).to(device),
-            "recall": Recall(task="multiclass", num_classes=classes).to(device),
-            "F1": F1Score(task="multiclass", num_classes=classes).to(device)
+            "accuracy": MulticlassAccuracy(num_classes=classes, average="weighted").to(device),
+            "auroc": MulticlassAUROC(num_classes=classes, average="weighted").to(device),
+            "specificity": MulticlassSpecificity(num_classes=classes, average="weighted").to(device),
+            "recall": MulticlassRecall(num_classes=classes, average="weighted").to(device),
+            "F1": MulticlassF1Score(num_classes=classes, average="weighted").to(device)
         }
 
         if metrics:
@@ -792,8 +793,14 @@ class LinearHead(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
-        auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
+        auc = auroc(probs_tensor, y_tensor)
 
         # print("valid_auc", auc)
         self.log("valid_auc", auc)
@@ -801,7 +808,7 @@ class LinearHead(pl.LightningModule):
         # Compute and log selected metrics
         for metric_name, metric in self.metrics.items():
             metric_value = metric(
-                torch.from_numpy(probs) if metric_name == "auroc" else torch.from_numpy(predicted), torch.from_numpy(y)
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
             )
             self.log(f"val_{metric_name}", metric_value, prog_bar=True)
             wandb.log({f"val_{metric_name}": metric_value.item()})
@@ -814,8 +821,14 @@ class LinearHead(pl.LightningModule):
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
         auroc = AUROC(task="multiclass", num_classes=self.classes)
-        auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
+        auc = auroc(probs_tensor, y_tensor)
 
         print("test_auc", auc)
         self.log("test_auc", auc)
@@ -823,7 +836,7 @@ class LinearHead(pl.LightningModule):
         # Compute and log selected metrics
         for metric_name, metric in self.metrics.items():
             metric_value = metric(
-                torch.from_numpy(probs) if metric_name == "auroc" else torch.from_numpy(predicted), torch.from_numpy(y)
+                probs_tensor if metric_name == "auroc" else predicted_tensor, y_tensor
             )
             self.log(f"test_{metric_name}", metric_value, prog_bar=True)
             wandb.log({f"test_{metric_name}": metric_value.item()})
