@@ -1389,7 +1389,7 @@ def linear_evaluation_heart(
         classes=n_cls,
         l2_strength=l2_strength,
         head=head,
-        metrics=["accuracy", "auroc", "specificity", "recall"],
+        metrics=["accuracy", "auroc", "specificity", "recall", "F1"],
     )
 
     checkpoint_callback = ModelCheckpoint(
