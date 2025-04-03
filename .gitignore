@@ -41,3 +41,4 @@ __pycache__/
 
 # Hydra
 models/OPERA/multirun/*
+models/OPERA/outputs/*
