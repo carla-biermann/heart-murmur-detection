@@ -141,9 +141,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.dataset == "A":
-        feature_dir = "feature/pascal_eval_A/"
+        feature_dir = "feature/pascal_A_eval/"
     elif args.dataset == "B":
-        feature_dir = "feature/pascal_eval_B/"
+        feature_dir = "feature/pascal_B_eval/"
     else:
         raise ValueError("Please input a valid value for dataset: A or B.")
 

@@ -1610,7 +1610,7 @@ if __name__ == "__main__":
                     epochs=64,
                     dataset_name=data_task_list[0],
                     task=data_task_list[1],
-                    feature_dir=f"feature/{data_task_list[0]}_eval_{data_task_list[1]}/",
+                    feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                 )
             elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
@@ -1637,7 +1637,7 @@ if __name__ == "__main__":
                     epochs=64,
                     dataset_name=args.task,
                     task="",
-                    feature_dir="feature/physionet16_eval/",
+                    feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                 )
             auc_scores.append(auc)

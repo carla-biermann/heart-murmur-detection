@@ -1194,7 +1194,7 @@ if __name__ == "__main__":
                     feat_dim=args.dim,
                     dataset_name="pascal",
                     task=task,
-                    feature_dir=f"feature/pascal_eval_{task}/",
+                    feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
@@ -1206,7 +1206,7 @@ if __name__ == "__main__":
                     feat_dim=args.dim,
                     dataset_name="physionet16",
                     task="",
-                    feature_dir="feature/physionet16_eval/",
+                    feature_dir=f"feature/{args.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
