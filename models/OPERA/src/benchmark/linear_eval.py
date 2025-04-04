@@ -1644,7 +1644,7 @@ def main(cfg: DictConfig):
                     epochs=64,
                     dataset_name=data_task_list[0],
                     task=data_task_list[1],
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                 )
             elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
@@ -1671,7 +1671,7 @@ def main(cfg: DictConfig):
                     epochs=64,
                     dataset_name=cfg.task,
                     task="",
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                 )
             auc_scores.append(auc)
