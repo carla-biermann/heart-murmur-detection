@@ -69,7 +69,7 @@ def initialize_metrics(classes, device, metrics):
 
 
 def get_int_to_label_mapping(dataset, task):
-    if dataset == "physionet":
+    if dataset == "physionet16":
         file_path = f"feature/{dataset}_eval/int_to_label.json"
     elif dataset == "circor":
         file_path = f"feature/{dataset}_eval/int_to_{task}.json"
