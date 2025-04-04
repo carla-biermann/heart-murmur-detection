@@ -1290,7 +1290,7 @@ def main(cfg: DictConfig):
                     feat_dim=cfg.dim,
                     dataset_name="pascal",
                     task=task,
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
@@ -1302,7 +1302,7 @@ def main(cfg: DictConfig):
                     feat_dim=cfg.dim,
                     dataset_name="physionet16",
                     task="",
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
                 )
