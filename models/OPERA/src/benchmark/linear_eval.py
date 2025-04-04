@@ -1320,9 +1320,11 @@ def linear_evaluation_nosemic(
 
     return MAEs, MAPEs
 
+
 def get_wandb_name(use_feature, data, head):
-  s=time.gmtime(time.time())
-  return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{use_feature}-{data}-{head}"
+    s = time.gmtime(time.time())
+    return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{use_feature}-{data}-{head}"
+
 
 def linear_evaluation_heart(
     seed,
@@ -1339,7 +1341,8 @@ def linear_evaluation_heart(
 ):
     print("*" * 48)
     print(
-        f"training dataset {dataset_name} {task} using feature extracted by " + use_feature,
+        f"training dataset {dataset_name} {task} using feature extracted by "
+        + use_feature,
         "with l2_strength",
         l2_strength,
         "lr",
@@ -1389,7 +1392,21 @@ def linear_evaluation_heart(
         classes=n_cls,
         l2_strength=l2_strength,
         head=head,
-        metrics=["accuracy", "auroc", "specificity", "recall", "F1"],
+        metrics=[
+            "weighted_accuracy",
+            "weighted_auroc",
+            "weighted_specificity",
+            "weighted_recall",
+            "weighted_F1",
+            "unweighted_recall",
+            "avg_unweighted_recall",
+            "unweighted_precision",
+            "avg_unweighted_precision",
+            "unweighted_specificity",
+            "avg_unweighted_specificity",
+        ],
+        dataset=dataset_name,
+        task=task
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -1397,7 +1414,15 @@ def linear_evaluation_heart(
         mode="max",
         dirpath=f"cks/linear/{dataset_name}/",
         filename="_".join(
-            [head, use_feature, str(batch_size), str(lr), str(epochs), str(l2_strength), str(seed)]
+            [
+                head,
+                use_feature,
+                str(batch_size),
+                str(lr),
+                str(epochs),
+                str(l2_strength),
+                str(seed),
+            ]
         )
         + "-{epoch:02d}-{valid_auc:.2f}",
     )
@@ -1420,7 +1445,7 @@ def linear_evaluation_heart(
             "dataset": dataset_name,
             "task": task,
             "seed": seed,
-            "gradient_clip_val": 1.0
+            "gradient_clip_val": 1.0,
         }
     )
 
@@ -1440,7 +1465,8 @@ def linear_evaluation_heart(
     auc = test_res[0]["test_auc"]
     wandb_logger.experiment.log({"test_auc": auc})
     print(
-        f"finished training dataset {dataset_name} {task} using feature extracted by " + use_feature,
+        f"finished training dataset {dataset_name} {task} using feature extracted by "
+        + use_feature,
         "with l2_strength",
         l2_strength,
         "lr",
@@ -1622,7 +1648,7 @@ if __name__ == "__main__":
                     lr=args.lr,
                     head=args.head,
                     epochs=64,
-                    dataset_name = data_task_list[0],
+                    dataset_name=data_task_list[0],
                     task=data_task_list[1],
                     feature_dir="feature/circor_eval/",
                     labels_filename=f"{data_task_list[1]}.npy",

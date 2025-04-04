@@ -827,9 +827,10 @@ def finetune_icbhidisease(
     )
     return auc
 
+
 def get_wandb_name(use_feature, data, head):
-  s=time.gmtime(time.time())
-  return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{use_feature}-{data}-{head}"
+    s = time.gmtime(time.time())
+    return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{use_feature}-{data}-{head}"
 
 
 def finetune_heart(
@@ -847,7 +848,6 @@ def finetune_heart(
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
 ):
-
     n_cls = len(set(np.load(feature_dir + labels_filename)))
 
     wandb_logger = WandbLogger(
@@ -870,6 +870,20 @@ def finetune_heart(
             "task": task,
         }
     )
+
+    metrics = [
+        "weighted_accuracy",
+        "weighted_auroc",
+        "weighted_specificity",
+        "weighted_recall",
+        "weighted_F1",
+        "unweighted_recall",
+        "avg_unweighted_recall",
+        "unweighted_precision",
+        "avg_unweighted_precision",
+        "unweighted_specificity",
+        "avg_unweighted_specificity",
+    ]
 
     print("*" * 48)
     print(
@@ -926,7 +940,9 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
-            metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
+            metrics=metrics,
+            dataset=dataset_name,
+            task=task
         )
 
     elif pretrain == "clap":
@@ -943,7 +959,9 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
-            metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
+            metrics=metrics,
+            dataset=dataset_name,
+            task=task
         )
         from_audio = True
 
@@ -985,7 +1003,9 @@ def finetune_heart(
                 lr=lr,
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
-                metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
+                metrics=metrics,
+                dataset=dataset_name,
+                task=task
             )
         else:
             freeze_encoder = "early" if pretrain == "operaCE" else "none"
@@ -998,7 +1018,9 @@ def finetune_heart(
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
                 freeze_encoder=freeze_encoder,
-                metrics=["accuracy", "auroc", "specificity", "recall", "precision", "F1"],
+                metrics=metrics,
+                dataset=dataset_name,
+                task=task
             )
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder})
@@ -1042,7 +1064,11 @@ def finetune_heart(
         test_data, batch_size=batch_size, shuffle=False, num_workers=2
     )
 
-    ck_path = f"cks/finetune/{dataset_name}_{task}/" if task else f"cks/finetune/{dataset_name}"
+    ck_path = (
+        f"cks/finetune/{dataset_name}_{task}/"
+        if task
+        else f"cks/finetune/{dataset_name}"
+    )
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
