@@ -30,8 +30,17 @@ if not os.path.exists(data_dir):
         f"Folder not found: {data_dir}, please ensure the dataset is downloaded."
     )
 
+def save_mappings_json():
+    with open(feature_dir + "int_to_murmurs.json", "w") as f:
+        json.dump(int_to_murmurs, f)
+    with open(feature_dir + "int_to_outcome.json", "w") as f:
+        json.dump(int_to_outcome, f)
+
+    print(f"Murmur Mappings: {murmurs_to_int}")
+    print(f"Outcome Mappings: {outcome_to_int}")
 
 def read_data():
+    save_mappings_json()
     dirs = ["test_data", "training_data", "validation_data"]
 
     # Collect sound files, train_test_split and labels
@@ -84,13 +93,7 @@ def get_labels_from_csv():
                 outcomes.append(outcome)
 
     # Save mappings
-    with open(feature_dir + "int_to_murmurs.json", "w") as f:
-        json.dump(int_to_murmurs, f)
-    with open(feature_dir + "int_to_outcome.json", "w") as f:
-        json.dump(int_to_outcome, f)
-
-    print(f"Murmur Mappings: {murmurs_to_int}")
-    print(f"Outcome Mappings: {outcome_to_int}")
+    save_mappings_json()
 
     murmur_ints = [murmurs_to_int[m] for m in murmurs]
     outcome_ints = [outcome_to_int[m] for m in outcomes]
