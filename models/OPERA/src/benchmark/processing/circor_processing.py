@@ -19,7 +19,7 @@ from src.benchmark.baseline.extract_feature import (
 data_dir = "datasets/circor/"
 training_dir = "datasets/circor/training_data"
 int_to_murmurs = {"0": "Absent", "1": "Present", "2": "Unknown"}
-int_to_outcome = {"0": "Abnormal", "1": "Normal"}
+int_to_outcomes = {"0": "Abnormal", "1": "Normal"}
 murmurs_to_int = {"Absent": "0", "Present": "1", "Unknown": "2"}
 outcome_to_int = {"Abnormal": "0", "Normal": "1"}
 
@@ -33,8 +33,8 @@ if not os.path.exists(data_dir):
 def save_mappings_json():
     with open(feature_dir + "int_to_murmurs.json", "w") as f:
         json.dump(int_to_murmurs, f)
-    with open(feature_dir + "int_to_outcome.json", "w") as f:
-        json.dump(int_to_outcome, f)
+    with open(feature_dir + "int_to_outcomes.json", "w") as f:
+        json.dump(int_to_outcomes, f)
 
     print(f"Murmur Mappings: {murmurs_to_int}")
     print(f"Outcome Mappings: {outcome_to_int}")
