@@ -1189,7 +1189,7 @@ if __name__ == "__main__":
                 task = args.task.split("_")[1]
                 auc = finetune_heart(
                     pretrain=args.pretrain,
-                    epochs=3,
+                    epochs=64,
                     l2_strength=args.l2_strength,
                     feat_dim=args.dim,
                     dataset_name="circor",
