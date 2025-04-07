@@ -19,8 +19,50 @@ from torchmetrics.classification import (
 )
 import wandb
 
+def circor_weighted_murmur_acc(predicted_tensor, y_tensor):
+    """
+    Compute the weighted murmur accuracy score.
 
-def initialize_metrics(classes, device, metrics):
+    Class labels:
+    0 = Absent
+    1 = Present
+    2 = Unknown
+
+    Args:
+        predicted_tensor (torch.Tensor): Predicted class indices (N,)
+        y_tensor (torch.Tensor): Ground truth class indices (N,)
+
+    Returns:
+        float: Weighted murmur accuracy score
+    """
+    # Initialize 3x3 confusion matrix: [true_class][pred_class]
+    cm = torch.zeros((3, 3), dtype=torch.int32)
+
+    for true, pred in zip(y_tensor, predicted_tensor):
+        cm[true.item(), pred.item()] += 1
+
+    # Extract needed counts
+    mPP = cm[1, 1]
+    mPU = cm[1, 2]
+    mPA = cm[1, 0]
+    mUP = cm[2, 1]
+    mUU = cm[2, 2]
+    mUA = cm[2, 0]
+    mAP = cm[0, 1]
+    mAU = cm[0, 2]
+    mAA = cm[0, 0]
+
+    # Weighted accuracy formula
+    numerator = 5 * mPP + 3 * mUU + mAA
+    denominator = 5 * (mPP + mUP + mAP) + 3 * (mPU + mUU + mAU) + (mPA + mUA + mAA)
+
+    if denominator == 0:
+        return torch.tensor(0.0)
+
+    return numerator.float() / denominator.float()
+
+
+def initialize_metrics(classes, device, metrics, dataset, task):
     available_metrics = {
         "weighted_accuracy": MulticlassAccuracy(
             num_classes=classes, average="weighted"
@@ -59,12 +101,14 @@ def initialize_metrics(classes, device, metrics):
             num_classes=classes, average="macro"
         ).to(device),
     }
+    if dataset == "circor" and task == "murmurs":
+        available_metrics["circor_weighted_murmur_acc"] = circor_weighted_murmur_acc
     selected_metrics = {}
     for metric in metrics:
         if metric in available_metrics:
             selected_metrics[metric] = available_metrics[metric]
         else:
-            raise ValueError(f"Unsupported metric: {metric}")
+            print(f"Unsupported metric: {metric}")
     return selected_metrics
 
 
@@ -165,7 +209,7 @@ class AudioClassifier(pl.LightningModule):
         # self.fc.bias.data.zero_()
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.metrics = initialize_metrics(classes, device, metrics)
+        self.metrics = initialize_metrics(classes, device, metrics, dataset, task)
         self.dataset = dataset
         self.task = task
 
@@ -371,7 +415,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         # self.fc.bias.data.zero_()
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.metrics = initialize_metrics(classes, device, metrics)
+        self.metrics = initialize_metrics(classes, device, metrics, dataset, task)
         self.dataset = dataset
         self.task = task
 
@@ -574,7 +618,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         # self.fc.bias.data.zero_()
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.metrics = initialize_metrics(classes, device, metrics)
+        self.metrics = initialize_metrics(classes, device, metrics, dataset, task)
         self.dataset = dataset
         self.task = task
 
@@ -896,7 +940,7 @@ class LinearHead(pl.LightningModule):
         self.test_step_outputs = []
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.metrics = initialize_metrics(classes, device, metrics)
+        self.metrics = initialize_metrics(classes, device, metrics, dataset, task)
         self.dataset = dataset
         self.task = task
 
