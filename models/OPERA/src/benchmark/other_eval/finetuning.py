@@ -1108,8 +1108,8 @@ def finetune_heart(
     if trainer.should_stop:
         print("Early stopping triggered. Training stopped.")
 
-    trainer.test(dataloaders=train_loader)
-    trainer.test(dataloaders=val_loader)
+    trainer.test(dataloaders=train_loader) # logging overwritten by test
+    trainer.test(dataloaders=val_loader) # logging overwritten by test
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
