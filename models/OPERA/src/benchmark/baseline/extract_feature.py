@@ -75,10 +75,10 @@ def extract_vgg_feature(sound_dir_loc, from_signal=False):
     return x_data
 
 
-def extract_clap_feature(sound_dir_loc, single_file=False, version="2022"):
+def extract_clap_feature(sound_dir_loc, single_file=False, version="2022", ckpt_path=None):
     from src.benchmark.baseline.msclap import CLAP
 
-    clap_model = CLAP(version=version, use_cuda=True)
+    clap_model = CLAP(model_fp=ckpt_path, version=version, use_cuda=True)
 
     if single_file:
         audio_embeddings = clap_model.get_audio_embeddings(sound_dir_loc)
@@ -100,7 +100,7 @@ def extract_clap_feature(sound_dir_loc, single_file=False, version="2022"):
     return x_data
 
 
-def extract_audioMAE_feature(sound_dir_loc, input_sec=10):
+def extract_audioMAE_feature(sound_dir_loc, input_sec=10, ckpt_path=None):
     """
     input_sec and trim_tail deprecated
     trim_tail: drop last residual segment if too short, shorter than one half of input_sec
@@ -113,9 +113,11 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10):
 
     ##Download the mode from the url and save it under src/benchmark/baseline/audioMAE/
     ##https://drive.google.com/file/d/1ni_DV4dRf7GxM8k-Eirx71WP9Gg89wwu/view
-    encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth"
+    encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth" if not ckpt_path else ckpt_path
 
     if not os.path.exists(encoder_path):
+        if ckpt_path:
+            raise FileNotFoundError(f"Ckpt_path {ckpt_path} not found.")
         print(f"Folder not found: {encoder_path}, downloading the model")
         os.system("sh src/benchmark/baseline/audioMAE/download_model.sh")
 
@@ -131,7 +133,12 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10):
     )
 
     model.eval()
-    model.load_state_dict(ckpt["model"], strict=False)
+    # Load pretrained weights for model
+    # Try "model" key first (assuming only state dict is saved), otherwise get "state_dict" from full training checkpoint.
+    try:
+        model.load_state_dict(ckpt["model"], strict=False)
+    except KeyError:
+        model.load_state_dict(ckpt["state_dict"], strict=False)
     mae_features = []
 
     for audio_file in tqdm(sound_dir_loc):

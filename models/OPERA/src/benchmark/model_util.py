@@ -56,6 +56,7 @@ def extract_opera_feature(
     butterworth_filter=None,
     lowcut=200,
     highcut=1800,
+    ckpt_path=None
 ):
     """
     extract features using OPERA models
@@ -63,7 +64,7 @@ def extract_opera_feature(
     print(f"Extracting features from {pretrain} model with input_sec={input_sec}")
     MAE = "mae" in pretrain or "GT" in pretrain
 
-    encoder_path = get_encoder_path(pretrain)
+    encoder_path = get_encoder_path(pretrain) if not ckpt_path else ckpt_path
     ckpt = torch.load(encoder_path, map_location=device)
     model = initialize_pretrained_model(pretrain)
     model.load_state_dict(ckpt["state_dict"], strict=False)

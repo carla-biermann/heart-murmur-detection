@@ -122,9 +122,15 @@ class CLAPWrapper:
         )
 
         # Load pretrained weights for model
-        model_state_dict = torch.load(self.model_fp, map_location=torch.device("cpu"))[
-            "model"
-        ]
+        # Try "model" key first (assuming only state dict is saved), otherwise get "state_dict" from full training checkpoint.
+        try:
+            model_state_dict = torch.load(
+                self.model_fp, map_location=torch.device("cpu")
+            )["model"]
+        except KeyError:
+            model_state_dict = torch.load(
+                self.model_fp, map_location=torch.device("cpu")
+            )["state_dict"]
 
         # We unwrap the DDP model and save. If the model is not unwrapped and saved, then the model needs to unwrapped before `load_state_dict`:
         # Reference link: https://discuss.pytorch.org/t/how-to-load-dataparallel-model-which-trained-using-multiple-gpus/146005
