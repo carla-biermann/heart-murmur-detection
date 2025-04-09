@@ -11,6 +11,7 @@ from src.benchmark.baseline.extract_feature import (
     extract_audioMAE_feature,
     extract_clap_feature,
     extract_vgg_feature,
+    extract_HeAR_feature,
 )
 
 # Directories
@@ -121,6 +122,9 @@ def extract_and_save_embeddings_baselines(feature="audiomae"):
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
         np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
+    elif feature == "hear":
+        hear_feature = extract_HeAR_feature(sound_dir_loc)
+        np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=8, dim=1280):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
@@ -151,7 +155,7 @@ if __name__ == "__main__":
         os.makedirs(feature_dir)
         preprocess_split(args.dataset)
 
-    if args.pretrain in ["vggish", "clap", "audiomae"]:
+    if args.pretrain in ["vggish", "clap", "audiomae", "hear"]:
         extract_and_save_embeddings_baselines(args.pretrain)
     else:
         if args.pretrain == "operaCT":

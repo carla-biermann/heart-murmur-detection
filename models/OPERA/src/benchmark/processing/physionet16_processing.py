@@ -10,6 +10,7 @@ from src.benchmark.baseline.extract_feature import (
     extract_audioMAE_feature,
     extract_clap_feature,
     extract_vgg_feature,
+    extract_HeAR_feature,
 )
 
 # Directories
@@ -138,7 +139,7 @@ def extract_and_save_embeddings_baselines(
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
 
-    if feature == "vggish":
+    if feature == "vggish": # no fine-tuning
         vgg_features = extract_vgg_feature(sound_dir_loc)
         np.save(feature_dir + feature + "_feature.npy", np.array(vgg_features))
     elif feature == "clap":
@@ -147,6 +148,9 @@ def extract_and_save_embeddings_baselines(
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc, ckpt_path=ckpt_path,)
         np.save(feature_dir + feature + suffix + "_feature.npy", np.array(audiomae_feature))
+    elif feature == "hear": # no fine-tuning possible, not open-source
+        hear_feature = extract_HeAR_feature(sound_dir_loc)
+        np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
 
 
 def extract_and_save_embeddings(
@@ -186,7 +190,7 @@ if __name__ == "__main__":
         os.makedirs(feature_dir)
         preprocess_split()
 
-    if args.pretrain in ["vggish", "clap", "audiomae"]:
+    if args.pretrain in ["vggish", "clap", "audiomae", "hear"]:
         extract_and_save_embeddings_baselines(
             args.pretrain, args.fine_tuned, args.ckpt_path, args.seed
         )
