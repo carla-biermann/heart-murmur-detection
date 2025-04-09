@@ -202,7 +202,7 @@ def extract_HeAR_feature(sound_dir_loc, input_sec=2):
 
         hear_features.append(embeddings)
 
-    hear_features = np.array(hear_features)
+    hear_features = np.array(hear_features).squeeze(1)
     print(hear_features.shape)
     return hear_features
 
