@@ -75,7 +75,9 @@ def extract_vgg_feature(sound_dir_loc, from_signal=False):
     return x_data
 
 
-def extract_clap_feature(sound_dir_loc, single_file=False, version="2022", ckpt_path=None):
+def extract_clap_feature(
+    sound_dir_loc, single_file=False, version="2022", ckpt_path=None
+):
     from src.benchmark.baseline.msclap import CLAP
 
     clap_model = CLAP(model_fp=ckpt_path, version=version, use_cuda=True)
@@ -113,7 +115,9 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10, ckpt_path=None):
 
     ##Download the mode from the url and save it under src/benchmark/baseline/audioMAE/
     ##https://drive.google.com/file/d/1ni_DV4dRf7GxM8k-Eirx71WP9Gg89wwu/view
-    encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth" if not ckpt_path else ckpt_path
+    encoder_path = (
+        "src/benchmark/baseline/audioMAE/pretrained.pth" if not ckpt_path else ckpt_path
+    )
 
     if not os.path.exists(encoder_path):
         if ckpt_path:
@@ -162,6 +166,45 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10, ckpt_path=None):
     x_data = x_data.squeeze(1)
     print(x_data.shape)
     return x_data
+
+
+def extract_HeAR_feature(sound_dir_loc, input_sec=2):
+    from huggingface_hub import from_pretrained_keras, HfFolder
+    import tensorflow as tf
+
+    HfFolder.save_token(
+        # your token
+    )
+    assert HfFolder.get_token() is not None
+
+    # Load pretrained HeAR model
+    model = from_pretrained_keras("google/hear")
+    infer = model.signatures["serving_default"]
+
+    SR_HEAR = 16000  # Model expects 16kHz audio
+    hear_features = []
+
+    for audio_file in tqdm(sound_dir_loc):
+        # Load and preprocess audio
+        y, _ = librosa.load(audio_file, sr=SR_HEAR, mono=True)
+
+        # Trim or pad to fixed duration
+        target_len = input_sec * SR_HEAR
+        if len(y) > target_len:
+            y = y[:target_len]
+        elif len(y) < target_len:
+            y = np.pad(y, (0, target_len - len(y)))
+
+        # Perform Inference Extract and Process the Embedding
+        input = tf.convert_to_tensor(y[None, :].astype(np.float32), dtype=tf.float32)
+        outputs = infer(x=input)
+        embeddings = outputs["output_0"].numpy()
+
+        hear_features.append(embeddings)
+
+    hear_features = np.array(hear_features)
+    print(hear_features.shape)
+    return hear_features
 
 
 def get_split_signal_fbank(data_folder, filename, input_sec=10, sample_rate=16000):
