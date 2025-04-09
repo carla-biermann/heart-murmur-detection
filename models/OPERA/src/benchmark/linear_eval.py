@@ -1406,13 +1406,13 @@ def linear_evaluation_heart(
             "avg_unweighted_specificity",
         ],
         dataset=dataset_name,
-        task=task
+        task=task,
     )
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
         mode="max",
-        dirpath=f"cks/linear/{dataset_name}/",
+        dirpath=f"cks/linear/{dataset_name}_{task}/",
         filename="_".join(
             [
                 head,
@@ -1503,7 +1503,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     feature = args.pretrain
-    if feature not in ["vggish", "opensmile", "clap", "audiomae"]:  # baselines
+    if (
+        feature not in ["vggish", "opensmile", "clap", "audiomae", "hear"]
+        and "finetuned" not in feature
+    ):  # baselines
         feature += str(args.dim)
 
     if not args.LOOCV:
