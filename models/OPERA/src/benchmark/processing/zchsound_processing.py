@@ -18,7 +18,10 @@ from src.benchmark.baseline.extract_feature import (
 
 # Directories
 data_dir = "datasets/ZCHSound/"
-int_to_label = {"0": "ASD", "1": "NORMAL", "2": "PDA", "3": "PFO", "4": "VSD"}
+int_to_murmurs = {"0": "Absent", "1": "Present"}
+int_to_outcomes = {"0": "ASD", "1": "NORMAL", "2": "PDA", "3": "PFO", "4": "VSD"}
+murmurs_to_int = {"NORMAL": 0, "ASD": 1, "PDA": 1, "PFO": 1, "VSD": 1}
+outcomes_to_int = {"ASD": 0, "NORMAL": 1, "PDA": 2, "PFO": 3, "VSD": 4}
 
 
 def get_labels_from_csv(path):
@@ -34,30 +37,28 @@ def get_labels_from_csv(path):
             label_dict[file_id] = diagnosis
             label_set.add(diagnosis)
 
-    # Create label mappings
-    label_to_int = {label: idx for idx, label in int_to_label.items()}
-
     # Save mappings
-    with open(feature_dir + "label_to_int.json", "w") as f:
-        json.dump(label_to_int, f)
-    with open(feature_dir + "int_to_label.json", "w") as f:
-        json.dump(int_to_label, f)
+    with open(feature_dir + "int_to_outcomes.json", "w") as f:
+        json.dump(int_to_outcomes, f)
+    with open(feature_dir + "int_to_murmurs.json", "w") as f:
+        json.dump(int_to_murmurs, f)
 
-    print(f"Label Mappings: {label_to_int}")
-    return label_dict, label_to_int
+    print(f"Label Mappings: {outcomes_to_int}")
+    print(f"Label Mappings: {murmurs_to_int}")
+    return label_dict
 
 
 def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
     """Split dataset into train, val, and test sets, and save splits."""
-    label_dict, label_to_int = get_labels_from_csv(data_dir + csv_filename)
+    label_dict = get_labels_from_csv(data_dir + csv_filename)
 
     # Get patient IDs and labels (convert labels to integers)
     patient_ids = list(label_dict.keys())
-    labels = [label_to_int[label_dict[u]] for u in patient_ids]
+    outcomes = [outcomes_to_int[label_dict[u]] for u in patient_ids]
 
     # Split: Train (64%), Val (16%), Test (20%)
     _x_train, x_test, _y_train, y_test = train_test_split(
-        patient_ids, labels, test_size=0.2, random_state=42, stratify=labels
+        patient_ids, outcomes, test_size=0.2, random_state=42, stratify=outcomes
     )
     x_train, x_val, y_train, y_val = train_test_split(
         _x_train, _y_train, test_size=0.2, random_state=42, stratify=_y_train
@@ -74,7 +75,8 @@ def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
 
     # Create train/val/test splits for audio files
     audio_splits = []
-    audio_labels = []
+    outcome_labels = []
+    murmur_labels = []
     for file in sound_files:
         file_id = os.path.basename(file)
         if file_id in x_train:
@@ -83,31 +85,13 @@ def preprocess_split(csv_filename="Clean Heartsound Data Details.csv"):
             audio_splits.append("val")
         else:
             audio_splits.append("test")
-        audio_labels.append(label_to_int[label_dict[file_id]])
+        outcome_labels.append(outcomes_to_int[label_dict[file_id]])
+        murmur_labels.append(murmurs_to_int[label_dict[file_id]])
 
     np.save(feature_dir + "train_test_split.npy", audio_splits)
-    np.save(feature_dir + "labels.npy", audio_labels)
+    np.save(feature_dir + "outcomes.npy", outcome_labels)
+    np.save(feature_dir + "murmurs.npy", murmur_labels)
 
-
-def check_demographic(trait="label"):
-    """Check the class distribution for train/val/test sets."""
-    print(f"Checking class distribution by {trait}")
-
-    sound_files = np.load(feature_dir + "sound_dir_loc.npy")
-    labels = np.load(feature_dir + "labels.npy")
-    splits = np.load(feature_dir + "train_test_split.npy")
-
-    # Load label mappings
-    with open(feature_dir + "int_to_label.json", "r") as f:
-        int_to_label = json.load(f)
-
-    for split_name in ["train", "val", "test"]:
-        subset = sound_files[splits == split_name]
-        counts = collections.defaultdict(int)
-        for i, file in enumerate(subset):
-            label = labels[i]
-            counts[int_to_label[str(label)]] += 1
-        print(f"{split_name.capitalize()} Distribution: {dict(counts)}")
 
 def extract_and_save_embeddings_baselines(feature="audiomae"):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
@@ -174,7 +158,6 @@ if __name__ == "__main__":
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)
         preprocess_split(csv_filename)
-        check_demographic()
 
     if args.pretrain in ["vggish", "clap", "audiomae", "hear"]:
         extract_and_save_embeddings_baselines(args.pretrain)
