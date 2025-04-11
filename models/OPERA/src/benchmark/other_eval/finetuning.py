@@ -919,6 +919,7 @@ def finetune_heart(
             np.save(feature_dir + "fbank_audiomae.npy", x_data)
 
         x_data = np.load(feature_dir + "fbank_audiomae.npy")
+        batch_size = 32
 
         encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth"
         ckpt = torch.load(encoder_path)
