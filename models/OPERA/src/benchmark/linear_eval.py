@@ -1619,7 +1619,7 @@ def main(cfg: DictConfig):
                     epochs=32,
                     seed=seed,
                 )
-            elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy":
+            elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
                 data_task_list = cfg.task.split("_")
                 auc = linear_evaluation_heart(
                     seed=seed,
@@ -1631,7 +1631,23 @@ def main(cfg: DictConfig):
                     dataset_name=data_task_list[0],
                     task=data_task_list[1],
                     feature_dir=f"feature/{cfg.task}_eval/",
-                    labels_filename="labels.npy",
+                    labels_filename="outcomes.npy",
+                )
+            elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
+                data_task_list = cfg.task.split("_")
+                dataset_name = f"{data_task_list[0]}_{data_task_list[1]}"
+                task = data_task_list[2]
+                auc = linear_evaluation_heart(
+                    seed=seed,
+                    use_feature=feature,
+                    l2_strength=cfg.l2_strength,
+                    lr=cfg.lr,
+                    head=cfg.head,
+                    epochs=64,
+                    dataset_name=dataset_name,
+                    task=task,
+                    feature_dir=f"feature/{dataset_name}_eval/",
+                    labels_filename=f"{task}.npy",
                 )
             elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                 data_task_list = cfg.task.split("_")
