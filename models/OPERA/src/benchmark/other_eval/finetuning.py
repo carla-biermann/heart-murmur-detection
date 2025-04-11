@@ -1289,7 +1289,6 @@ def main(cfg: DictConfig):
                     pretrain=cfg.pretrain,
                     epochs=64,
                     l2_strength=cfg.l2_strength,
-                    batch_size=32,
                     feat_dim=cfg.dim,
                     dataset_name=dataset_name,
                     task=task,
