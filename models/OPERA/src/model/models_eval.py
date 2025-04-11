@@ -113,14 +113,17 @@ def initialize_metrics(classes, device, metrics, dataset, task):
 
 
 def get_int_to_label_mapping(dataset, task):
-    if dataset == "physionet16":
+    if dataset in "physionet16":
         file_path = f"feature/{dataset}_eval/int_to_label.json"
-    elif dataset == "circor":
+    # ZCHSound murmurs: dataset = "zchsound_clean" | "zchsound_noisy" and task = "murmurs"
+    elif dataset in ["circor", "zchsound_clean", "zchsound_noisy"]:
         file_path = f"feature/{dataset}_eval/int_to_{task}.json"
-    elif dataset in ["pascal", "zchsound"]:
+    # ZCHSound outcomes: dataset = "zchsound" and task = "noisy" | "clean"
+    # Goal: migrate this to same naming convention as ZCHSound murmurs
+    elif dataset in ["pascal", "zchsound"]: 
         file_path = f"feature/{dataset}_{task}_eval/int_to_label.json"
     else:
-        raise ValueError("No support for this dataset.")
+        raise ValueError(f"No support for this dataset: {dataset}")
 
     with open(file_path, "r") as file:
         data = json.load(file)
