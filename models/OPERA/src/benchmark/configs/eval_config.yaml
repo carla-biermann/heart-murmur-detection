@@ -1,0 +1,31 @@
+task: icbhidisease
+label: smoker
+modality: cough
+pretrain: operaCE
+dim: 1280
+gridsearch: False
+lr: 1e-4 # not used if gridsearch = True
+l2_strength: 1e-5 # not used if gridsearch = True
+head: linear
+n_run: 5
+LOOCV: False
+mapgoogle: False
+avgprob: False
+epochs: 64
+batch_size: 32
+head_only: False # only evaluating linear head on extracted features or full model?
+
+metrics: [
+  "circor_weighted_murmur_acc",
+  "weighted_accuracy",
+  "weighted_auroc",
+  "weighted_specificity",
+  "weighted_recall",
+  "weighted_F1",
+  "unweighted_recall",
+  "avg_unweighted_recall",
+  "unweighted_precision",
+  "avg_unweighted_precision",
+  "unweighted_specificity",
+  "avg_unweighted_specificity",
+]
