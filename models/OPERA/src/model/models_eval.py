@@ -350,6 +350,9 @@ class AudioClassifier(pl.LightningModule):
 
         # Compute and log selected metrics
         self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+
+        self.test_step_outputs.clear()
+        
         return auc
 
     def configure_optimizers(self):
