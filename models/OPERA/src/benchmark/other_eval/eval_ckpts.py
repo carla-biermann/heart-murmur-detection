@@ -191,6 +191,7 @@ def evaluate_finetuned_model(
             "seed": seed,
             "dataset": dataset_name,
             "task": task,
+            "eval_only": True,
         }
     )
 
@@ -372,11 +373,13 @@ def evaluate_model(cfg, seed):
         if "murmurs" in parts:  # new dataset / task notation for zchsound murmurs
             dataset_name = f"{parts[0]}_{parts[1]}"
             task = parts[2]
+            labels_filename = f"{task}.npy"
+            feature_dir = f"feature/{dataset_name}_eval/"
         else:
-            dataset_name = "zchsound"
+            dataset_name = parts[0]
             task = parts[1]
-        labels_filename = f"{task}.npy"
-        feature_dir = f"feature/{dataset_name}_eval/"
+            labels_filename = "outcomes.npy"
+            feature_dir=f"feature/{cfg.task}_eval/"
     elif "circor" in cfg.task:
         dataset_name = "circor"
         task = cfg.task.split("_")[1]
