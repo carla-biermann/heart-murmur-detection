@@ -4,6 +4,7 @@ import time
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 import wandb
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -82,6 +83,19 @@ class DecayLearningRate(pl.Callback):
                 new_lr_group.append(new_lr)
                 param_group["lr"] = new_lr
             self.old_lrs[opt_idx] = new_lr_group
+
+
+def get_weights_tensor(labels, n_cls):
+    
+    label_counts = collections.Counter(labels)
+    total_count = len(labels)
+    class_freqs = np.array([label_counts[i] / total_count for i in range(n_cls)])
+
+    # Inverse frequency and normalize
+    class_weights = 1.0 / class_freqs
+    class_weights = class_weights / class_weights.sum()
+
+    return torch.tensor(class_weights, dtype=torch.float)
 
 
 def linear_evaluation_covid19sounds(
@@ -1341,6 +1355,7 @@ def linear_evaluation_heart(
     batch_size=32,
     lr=1e-4,
     head="linear",
+    loss="unweighted",
     dataset_name="circor",
     task="murmurs",
     feature_dir="feature/circor_eval/",
@@ -1400,13 +1415,13 @@ def linear_evaluation_heart(
         train_data, batch_size=batch_size, num_workers=1, shuffle=True
     )
     val_loader = DataLoader(
-        val_data, batch_size=batch_size, num_workers=1, shuffle=True
+        val_data, batch_size=batch_size, num_workers=1, shuffle=False
     )
     test_loader = DataLoader(
-        test_data, batch_size=batch_size, shuffle=True, num_workers=1
+        test_data, batch_size=batch_size, shuffle=False, num_workers=1
     )
 
-    model = LinearHead(
+    args = dict(
         feat_dim=feat_dim,
         classes=n_cls,
         l2_strength=l2_strength,
@@ -1434,6 +1449,13 @@ def linear_evaluation_heart(
         dataset=dataset_name,
         task=task,
     )
+
+    if loss == "weighted":
+        weights_tensor = get_weights_tensor(y_label_train, n_cls)
+        loss_func = nn.CrossEntropyLoss(weight=weights_tensor)
+        args["loss_func"] = loss_func
+
+    model = LinearHead(**args)
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
@@ -1472,6 +1494,7 @@ def linear_evaluation_heart(
             "task": task,
             "seed": seed,
             "gradient_clip_val": 1.0,
+            "loss": loss, 
         }
     )
 
@@ -1626,6 +1649,7 @@ def main(cfg: DictConfig):
                     use_feature=feature,
                     l2_strength=cfg.l2_strength,
                     lr=cfg.lr,
+                    loss=cfg.loss,
                     head=cfg.head,
                     epochs=64,
                     dataset_name=data_task_list[0],
@@ -1642,6 +1666,7 @@ def main(cfg: DictConfig):
                     use_feature=feature,
                     l2_strength=cfg.l2_strength,
                     lr=cfg.lr,
+                    loss=cfg.loss,
                     head=cfg.head,
                     epochs=64,
                     dataset_name=dataset_name,
@@ -1656,6 +1681,7 @@ def main(cfg: DictConfig):
                     use_feature=feature,
                     l2_strength=cfg.l2_strength,
                     lr=cfg.lr,
+                    loss=cfg.loss,
                     head=cfg.head,
                     epochs=64,
                     dataset_name=data_task_list[0],
@@ -1670,6 +1696,7 @@ def main(cfg: DictConfig):
                     use_feature=feature,
                     l2_strength=cfg.l2_strength,
                     lr=cfg.lr,
+                    loss=cfg.loss,
                     head=cfg.head,
                     epochs=64,
                     dataset_name=data_task_list[0],
@@ -1683,6 +1710,7 @@ def main(cfg: DictConfig):
                     use_feature=feature,
                     l2_strength=cfg.l2_strength,
                     lr=cfg.lr,
+                    loss=cfg.loss,
                     head=cfg.head,
                     epochs=64,
                     dataset_name=cfg.task,
