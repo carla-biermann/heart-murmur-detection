@@ -10,3 +10,4 @@ n_run: 5
 LOOCV: false
 epochs: 64
 batch_size: 32
+loss: unweighted
