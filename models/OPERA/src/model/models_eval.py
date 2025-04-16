@@ -62,6 +62,102 @@ def circor_weighted_murmur_acc(predicted_tensor, y_tensor):
     return numerator.float() / denominator.float()
 
 
+def circor_weighted_outcome_acc(predicted_tensor, y_tensor):
+    """
+    Compute the weighted murmur accuracy score.
+
+    Class labels:
+    0 = Abnormal
+    1 = Normal
+
+    Args:
+        predicted_tensor (torch.Tensor): Predicted class indices (N,)
+        y_tensor (torch.Tensor): Ground truth class indices (N,)
+
+    Returns:
+        float: Weighted murmur accuracy score
+    """
+    # Initialize 2x2 confusion matrix: [true_class][pred_class]
+    cm = torch.zeros((2, 2), dtype=torch.int32)
+
+    for true, pred in zip(y_tensor, predicted_tensor):
+        cm[true.item(), pred.item()] += 1
+
+    # Extract needed counts
+    nTP = cm[0, 0]
+    nFP = cm[1, 0]
+    nFN = cm[0, 1]
+    nTN = cm[1, 1]
+
+    # Weighted accuracy formula
+    numerator = 5 * nTP + nTN
+    denominator = 5 * (nTP + nFN) + (nFP + nTN)
+
+    if denominator == 0:
+        return torch.tensor(0.0)
+
+    return numerator.float() / denominator.float()
+
+
+# Define total cost for algorithmic prescreening of m patients.
+def cost_algorithm(m):
+    return 10*m
+
+# Define total cost for expert screening of m patients out of a total of n total patients.
+def cost_expert(m, n):
+    return (25 + 397*(m/n) -1718*(m/n)**2 + 11296*(m/n)**4) * n
+
+# Define total cost for treatment of m patients.
+def cost_treatment(m):
+    return 10000*m
+
+# Define total cost for missed/late treatement of m patients.
+def cost_error(m):
+    return 50000*m
+
+# Compute Challenge cost metric.
+def compute_cost(task, predicted_tensor, y_tensor):
+
+    y_true = y_tensor.cpu().numpy()
+    y_pred = predicted_tensor.cpu().numpy()
+
+    # Define classes for referral.
+    if task == "murmurs":
+        referral_classes = [1, 2] # ['Present', 'Unknown']
+    elif task == "outcomes":
+        referral_classes = [0] # ['Abnormal']
+
+    y_true_referral = np.isin(y_true, referral_classes)
+    y_pred_referral = np.isin(y_pred, referral_classes)
+
+    # Identify true positives, false positives, false negatives, and true negatives.
+    tp = np.sum(y_true_referral & y_pred_referral)
+    fp = np.sum(~y_true_referral & y_pred_referral)
+    fn = np.sum(y_true_referral & ~y_pred_referral)
+    tn = np.sum(~y_true_referral & ~y_pred_referral)
+    total_patients = tp + fp + fn + tn
+
+    # Compute total cost for all patients.
+    total_cost = cost_algorithm(total_patients) \
+        + cost_expert(tp + fp, total_patients) \
+        + cost_treatment(tp) \
+        + cost_error(fn)
+
+    # Compute mean cost per patient.
+    if total_patients > 0:
+        mean_cost = total_cost / total_patients
+    else:
+        mean_cost = float('nan')
+
+    return torch.tensor(mean_cost)
+
+def compute_cost_murmurs(predicted_tensor, y_tensor):
+    return compute_cost("murmurs", predicted_tensor, y_tensor)
+
+def compute_cost_outcomes(predicted_tensor, y_tensor):
+    return compute_cost("outcomes", predicted_tensor, y_tensor)
+
+
 def initialize_metrics(classes, device, metrics, dataset, task):
     available_metrics = {
         "weighted_accuracy": MulticlassAccuracy(
@@ -82,6 +178,7 @@ def initialize_metrics(classes, device, metrics, dataset, task):
         "weighted_F1": MulticlassF1Score(num_classes=classes, average="weighted").to(
             device
         ),
+        "unweighted_accuracy": MulticlassAccuracy(num_classes=classes).to(device),
         "unweighted_recall": MulticlassRecall(num_classes=classes, average=None).to(
             device
         ),
@@ -103,6 +200,10 @@ def initialize_metrics(classes, device, metrics, dataset, task):
     }
     if dataset == "circor" and task == "murmurs":
         available_metrics["circor_weighted_murmur_acc"] = circor_weighted_murmur_acc
+        #available_metrics["circor_murmur_cost"] = compute_cost_murmurs
+    elif dataset == "circor" and task == "outcomes":
+        available_metrics["circor_weighted_outcome_acc"] = circor_weighted_outcome_acc
+        available_metrics["circor_outcome_cost"] = compute_cost_outcomes
     selected_metrics = {}
     for metric in metrics:
         if metric in available_metrics:
