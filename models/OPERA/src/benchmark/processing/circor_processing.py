@@ -148,16 +148,19 @@ def extract_and_save_embeddings_baselines(feature="audiomae"):
 
     if feature == "vggish":
         vgg_features = extract_vgg_feature(sound_dir_loc)
-        np.save(feature_dir + "vggish_feature.npy", np.array(vgg_features))
+        np.save(feature_dir + feature + "_feature.npy", np.array(vgg_features))
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc)
-        np.save(feature_dir + "clap_feature.npy", np.array(clap_features))
+        np.save(feature_dir + feature + "_feature.npy", np.array(clap_features))
+    elif feature == "clap2023":
+        clap2023_features = extract_clap_feature(sound_dir_loc, version="2023")
+        np.save(feature_dir + feature + "_feature.npy", np.array(clap2023_features))
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc)
-        np.save(feature_dir + "audiomae_feature.npy", np.array(audiomae_feature))
+        np.save(feature_dir + feature + "_feature.npy", np.array(audiomae_feature))
     elif feature == "hear":
         hear_feature = extract_HeAR_feature(sound_dir_loc)
-        np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
+        np.save(feature_dir + feature + "_feature.npy", np.array(hear_feature))
 
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
@@ -202,7 +205,7 @@ if __name__ == "__main__":
         os.makedirs(feature_dir)
         preprocess_split() if args.train_only else read_data()
 
-    if args.pretrain in ["vggish", "clap", "audiomae", "hear"]:
+    if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
         extract_and_save_embeddings_baselines(args.pretrain)
     else:
         if args.pretrain == "operaCT":

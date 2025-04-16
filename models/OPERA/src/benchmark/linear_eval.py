@@ -1504,7 +1504,7 @@ if __name__ == "__main__":
 
     feature = args.pretrain
     if (
-        feature not in ["vggish", "opensmile", "clap", "audiomae", "hear"]
+        feature not in ["vggish", "opensmile", "clap", "audiomae", "hear",  "clap2023"]
         and "finetuned" not in feature
     ):  # baselines
         feature += str(args.dim)

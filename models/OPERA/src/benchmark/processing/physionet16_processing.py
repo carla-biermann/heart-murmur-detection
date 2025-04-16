@@ -145,6 +145,9 @@ def extract_and_save_embeddings_baselines(
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc, ckpt_path=ckpt_path,)
         np.save(feature_dir + feature + suffix + "_feature.npy", np.array(clap_features))
+    elif feature == "clap2023":
+        clap2023_features = extract_clap_feature(sound_dir_loc, version="2023")
+        np.save(feature_dir + feature + suffix + "_feature.npy", np.array(clap2023_features))
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc, ckpt_path=ckpt_path,)
         np.save(feature_dir + feature + suffix + "_feature.npy", np.array(audiomae_feature))
@@ -190,7 +193,7 @@ if __name__ == "__main__":
         os.makedirs(feature_dir)
         preprocess_split()
 
-    if args.pretrain in ["vggish", "clap", "audiomae", "hear"]:
+    if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
         extract_and_save_embeddings_baselines(
             args.pretrain, args.fine_tuned, args.ckpt_path, args.seed
         )
