@@ -17,6 +17,7 @@ head_only: False # only evaluating linear head on extracted features or full mod
 
 metrics: [
   "circor_weighted_murmur_acc",
+  "circor_weighted_outcome_acc",
   "weighted_accuracy",
   "weighted_auroc",
   "weighted_specificity",
@@ -28,4 +29,6 @@ metrics: [
   "avg_unweighted_precision",
   "unweighted_specificity",
   "avg_unweighted_specificity",
+  "unweighted_accuracy",
+  "circor_outcome_cost"
 ]

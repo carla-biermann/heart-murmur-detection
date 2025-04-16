@@ -873,6 +873,10 @@ def finetune_heart(
         "avg_unweighted_precision",
         "unweighted_specificity",
         "avg_unweighted_specificity",
+        "circor_weighted_murmur_acc",
+        "circor_weighted_outcome_acc",
+        "unweighted_accuracy",
+        "circor_outcome_cost"
     ]
 
     print("*" * 48)

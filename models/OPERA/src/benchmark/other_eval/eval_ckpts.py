@@ -109,6 +109,7 @@ def evaluate_linear_head(
             "task": task,
             "seed": seed,
             "gradient_clip_val": 1.0,
+            "eval_only": True,
         }
     )
 
