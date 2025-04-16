@@ -1422,6 +1422,9 @@ def linear_evaluation_heart(
             "unweighted_specificity",
             "avg_unweighted_specificity",
             "circor_weighted_murmur_acc",
+            "unweighted_accuracy",
+            "circor_weighted_outcome_acc",
+            "circor_outcome_cost"
         ],
         dataset=dataset_name,
         task=task,
