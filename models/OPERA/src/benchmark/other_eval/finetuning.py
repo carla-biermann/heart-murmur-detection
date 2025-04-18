@@ -965,6 +965,25 @@ def finetune_heart(
             task=task
         )
         from_audio = True
+    elif pretrain == "clap2023":
+        from src.benchmark.baseline.msclap import CLAP
+
+        audio_files = np.load(feature_dir + "sound_dir_loc.npy")
+        x_data = np.array(audio_files)
+        clap_model = CLAP(version="2023", use_cuda=True)
+        net = clap_model.clap.audio_encoder
+        model = AudioClassifierCLAP(
+            net=net,
+            head=head,
+            classes=n_cls,
+            lr=lr,
+            l2_strength=l2_strength,
+            feat_dim=feat_dim,
+            metrics=metrics,
+            dataset=dataset_name,
+            task=task
+        )
+        from_audio = True
 
     else:
         if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
