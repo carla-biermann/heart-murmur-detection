@@ -11,6 +11,9 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from transformers import ViTConfig, ViTModel
 import wandb
 
 from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
@@ -18,6 +21,7 @@ from src.model.models_eval import (
     AudioClassifier,
     AudioClassifierAudioMAE,
     AudioClassifierCLAP,
+    AudioClassifierHeAR,
 )
 from src.util import (
     crop_first,
@@ -850,25 +854,11 @@ def finetune_heart(
 ):
     n_cls = len(set(np.load(feature_dir + labels_filename)))
 
+    run_name = get_wandb_name(pretrain, f"{dataset_name}-{task}", head)
     wandb_logger = WandbLogger(
         project="Heart-Sound-Analysis-FT",
-        name=get_wandb_name(pretrain, f"{dataset_name}-{task}", head),
+        name=run_name,
         log_model=True,
-    )
-
-    wandb_logger.experiment.config.update(
-        {
-            "n_cls": n_cls,
-            "pretrain": pretrain,
-            "l2_strength": l2_strength,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "head": head,
-            "seed": seed,
-            "dataset": dataset_name,
-            "task": task,
-        }
     )
 
     metrics = [
@@ -984,7 +974,59 @@ def finetune_heart(
             task=task
         )
         from_audio = True
+    elif pretrain == "hear":
+        if not os.path.exists(feature_dir + "fbank_hear.npy"):
+            from src.util import get_split_signal_fbank_pad
 
+            sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+            x_data = []
+            for audio_file in sound_dir_loc:
+                data = get_split_signal_fbank_pad(
+                    "", audio_file[:-4], spectrogram=False, sample_rate=16000, input_sec=2, trim_tail=False
+                )[0]
+                x_data.append(data)
+            x_data = np.array(x_data)
+            print(x_data.shape)
+            np.save(feature_dir + "fbank_hear.npy", x_data)
+
+        x_data = np.load(feature_dir + "fbank_hear.npy")
+        feat_dim=1024
+        batch_size = 16
+        configuration = ViTConfig(
+            image_size=(192, 128),
+            hidden_size=1024,
+            num_hidden_layers=24,
+            num_attention_heads=16,
+            intermediate_size=1024 * 4,
+            hidden_act="gelu_fast",
+            hidden_dropout_prob=0.0,
+            attention_probs_dropout_prob=0.0,
+            initializer_range=0.02,
+            layer_norm_eps=1e-6,
+            pooled_dim=512,
+            patch_size=16,
+            num_channels=1,
+            qkv_bias=True,
+            encoder_stride=16,
+            pooler_act='linear',
+            pooler_output_size=512,
+        )
+        pretrained_model = ViTModel.from_pretrained(
+            "google/hear-pytorch",
+            config=configuration,
+            ignore_mismatched_sizes=True # doesn't work without, 
+        )
+        model = AudioClassifierHeAR(
+            net=pretrained_model,
+            head=head,
+            classes=n_cls,
+            lr=lr,
+            l2_strength=l2_strength,
+            feat_dim=feat_dim,
+            metrics=metrics,
+            dataset=dataset_name,
+            task=task
+        )
     else:
         if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
             from src.util import get_split_signal_librosa
@@ -1043,7 +1085,21 @@ def finetune_heart(
                 task=task
             )
 
-    wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder})
+    wandb_logger.experiment.config.update(
+        {
+            "n_cls": n_cls,
+            "pretrain": pretrain,
+            "l2_strength": l2_strength,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "head": head,
+            "seed": seed,
+            "dataset": dataset_name,
+            "task": task,
+            "freeze_encoder": freeze_encoder
+        }
+    )
 
     y_set = np.load(feature_dir + "train_test_split.npy")
     y_label = np.load(feature_dir + labels_filename)
@@ -1090,21 +1146,24 @@ def finetune_heart(
         else f"cks/finetune/{dataset_name}"
     )
 
+    ck_filename ="_".join(
+        [
+            "finetuning",
+            head,
+            pretrain,
+            str(batch_size),
+            str(lr),
+            str(epochs),
+            str(l2_strength),
+            str(seed)
+        ]
+    )
+
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
         mode="max",
         dirpath=ck_path,
-        filename="_".join(
-            [
-                "finetuning",
-                head,
-                pretrain,
-                str(batch_size),
-                str(lr),
-                str(epochs),
-                str(l2_strength),
-            ]
-        )
+        filename=ck_filename
         + "-{epoch:02d}-{valid_auc:.2f}",
         every_n_epochs=3,
     )
@@ -1128,8 +1187,8 @@ def finetune_heart(
     if trainer.should_stop:
         print("Early stopping triggered. Training stopped.")
 
-    trainer.test(dataloaders=train_loader) # logging overwritten by test
-    trainer.test(dataloaders=val_loader) # logging overwritten by test
+    #trainer.test(dataloaders=train_loader) # logging overwritten by test
+    #trainer.test(dataloaders=val_loader) # logging overwritten by test
     test_res = trainer.test(dataloaders=test_loader)
     auc = test_res[0]["test_auc"]
     print(
@@ -1142,6 +1201,16 @@ def finetune_heart(
         "head",
         head,
     )
+
+    # Save weights to wandb
+    # weights_path = os.path.join(ck_path, ck_filename + "-weights_only.pt")
+    # torch.save(model.state_dict(), weights_path)
+
+    # wandb_run = wandb_logger.experiment
+    # artifact_name = f"{run_name}-weights"
+    # artifact = wandb.Artifact(name=artifact_name, type="model")
+    # artifact.add_file(weights_path, artifact_name + "_weights.pt")
+    # wandb_run.log_artifact(artifact)
     wandb.finish()
     return auc
 

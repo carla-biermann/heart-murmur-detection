@@ -1001,6 +1001,216 @@ class AudioClassifierCLAP(pl.LightningModule):
                 wandb.log({f"{split}_{metric_name}": metric_value.item()})
 
 
+class AudioClassifierHeAR(pl.LightningModule):
+    def __init__(
+        self,
+        net,
+        head="linear",
+        feat_dim=1280,
+        classes=4,
+        lr=1e-4,
+        loss_func=None,
+        freeze_encoder="none",
+        l2_strength=0.0005,
+        metrics=["auroc"],
+        dataset=None,
+        task=None,
+    ):
+        super().__init__()
+        self.net = net
+        self.freeze_encoder = freeze_encoder
+
+        # print(self.net)
+
+        if head == "linear":
+            print(feat_dim, classes)
+            self.head = nn.Sequential(nn.Linear(feat_dim, classes))
+        elif head == "mlp":
+            self.head = nn.Sequential(
+                nn.Linear(feat_dim, feat_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(feat_dim, classes),
+            )
+        else:
+            raise NotImplementedError(f"head not supported: {head}")
+
+        weights_init(self.head)
+        self.lr = lr
+        # self.l2_strength = l2_strength
+        self.l2_strength_new_layers = l2_strength
+        self.l2_strength_encoder = l2_strength * 0.2
+        self.loss = loss_func if loss_func else nn.CrossEntropyLoss()
+        self.classes = classes
+        self.validation_step_outputs = []
+        self.test_step_outputs = []
+
+        # self.fc.weight.data.normal_(mean=0.0, std=0.01)
+        # self.fc.bias.data.zero_()
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.metrics = initialize_metrics(classes, device, metrics, dataset, task)
+        self.dataset = dataset
+        self.task = task
+        
+    def forward_feature(self, x):
+        import src.benchmark.baseline.hear.python.data_processing.audio_utils as audio_utils
+        preprocess_audio = audio_utils.preprocess_audio
+        x_cpu = x.detach().cpu()
+        x_processed = preprocess_audio(x_cpu)
+        x_processed = x_processed.to(x.device)
+        x = self.net.forward(x_processed).pooler_output
+        return x
+
+    def forward(self, x):
+        import src.benchmark.baseline.hear.python.data_processing.audio_utils as audio_utils
+        preprocess_audio = audio_utils.preprocess_audio
+
+        x_cpu = x.detach().cpu()
+        x_processed = preprocess_audio(x_cpu)
+        x_processed = x_processed.to(x.device)
+        x = self.net.forward(x_processed).pooler_output
+        return self.head(x)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+
+        y_hat = self(x) + 1e-10
+        # print(y_hat, y)
+
+        loss = self.loss(y_hat, y)
+        self.log("train_loss", loss)
+
+        # Apply L2 regularization on head
+        l2_regularization = 0
+        for param in self.head.parameters():
+            l2_regularization += param.pow(2).sum()
+
+        self.log("train_l2_head", l2_regularization)
+        loss += self.l2_strength_new_layers * l2_regularization
+
+        # Apply L2 regularization on encoder
+        l2_regularization = 0
+        for param in self.net.parameters():
+            l2_regularization += param.pow(2).sum()
+
+        self.log("train_l2_encoder", l2_regularization)
+        loss += self.l2_strength_encoder * l2_regularization
+
+        probabilities = F.softmax(y_hat, dim=1)
+        _, predicted = torch.max(y_hat, 1)
+        acc = (predicted == y).double().mean()
+
+        self.log("train_acc", acc)
+
+        # Compute and log selected metrics
+        self.log_metrics("train", probabilities, predicted, y)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        x, y = batch
+
+        y_hat = self(x)
+
+        # print(y_hat, y)
+
+        loss = self.loss(y_hat, y)
+
+        probabilities = F.softmax(y_hat, dim=1)
+
+        _, predicted = torch.max(y_hat, 1)
+        acc = (predicted == y).double().mean()
+
+        self.log("valid_loss", loss)
+        self.log("valid_acc", acc)
+
+        self.validation_step_outputs.append(
+            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        )
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+
+        y_hat = self(x)
+
+        loss = self.loss(y_hat, y)
+
+        probabilities = F.softmax(y_hat, dim=1)
+
+        _, predicted = torch.max(y_hat, 1)
+        acc = (predicted == y).double().mean()
+
+        self.log("test_loss", loss)
+        self.log("test_acc", acc)
+        self.test_step_outputs.append(
+            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        )
+
+    def on_validation_epoch_end(self):
+        all_outputs = self.validation_step_outputs
+        y = np.concatenate([output[0] for output in all_outputs])
+        predicted = np.concatenate([output[1] for output in all_outputs])
+        probs = np.concatenate([output[2] for output in all_outputs])
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
+        auroc = AUROC(task="multiclass", num_classes=self.classes)
+        auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
+
+        # print("valid_auc", auc)
+        self.log("valid_auc", auc)
+
+        # Compute and log selected metrics
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+
+        self.validation_step_outputs.clear()
+
+    def on_test_epoch_end(self):
+        all_outputs = self.test_step_outputs
+        y = np.concatenate([output[0] for output in all_outputs])
+        predicted = np.concatenate([output[1] for output in all_outputs])
+        probs = np.concatenate([output[2] for output in all_outputs])
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        y_tensor = torch.from_numpy(y).to(device)
+        predicted_tensor = torch.from_numpy(predicted).to(device)
+        probs_tensor = torch.from_numpy(probs).to(device)
+
+        auroc = AUROC(task="multiclass", num_classes=self.classes)
+        auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
+
+        print("test_auc", auc)
+        self.log("test_auc", auc)
+
+        # Compute and log selected metrics
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+
+        self.test_step_outputs.clear()
+        return auc
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+        for metric_name, metric in self.metrics.items():
+            metric_value = metric(
+                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
+            )
+            if metric_value.numel() > 1:
+                label_dict = get_int_to_label_mapping(self.dataset, self.task)
+                for i, val in enumerate(metric_value):
+                    label = label_dict[str(i)]
+                    self.log(f"{split}_{metric_name}_{label}", val, prog_bar=True)
+                    wandb.log({f"{split}_{metric_name}_{label}": val.item()})
+            else:
+                self.log(f"{split}_{metric_name}", metric_value, prog_bar=True)
+                wandb.log({f"{split}_{metric_name}": metric_value.item()})
+
 class LinearHead(pl.LightningModule):
     def __init__(
         self,
