@@ -11,3 +11,6 @@ LOOCV: false
 epochs: 64
 batch_size: 32
 loss: unweighted
+grid_search: false
+l2_strength_grid: [1e-5, 1e-4, 1e-3]
+lr_grid: [1e-5, 1e-4, 1e-3]
