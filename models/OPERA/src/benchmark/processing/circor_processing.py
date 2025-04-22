@@ -23,6 +23,30 @@ int_to_murmurs = {"0": "Absent", "1": "Present", "2": "Unknown"}
 int_to_outcomes = {"0": "Abnormal", "1": "Normal"}
 murmurs_to_int = {"Absent": "0", "Present": "1", "Unknown": "2"}
 outcome_to_int = {"Abnormal": "0", "Normal": "1"}
+SYSTOLIC_MURMUR_TIMING = "Systolic murmur timing"
+SYSTOLIC_MURMUR_SHAPE = "Systolic murmur shape"
+SYSTOLIC_MURMUR_GRADING = "Systolic murmur grading"
+SYSTOLIC_MURMUR_PITCH = "Systolic murmur pitch"
+SYSTOLIC_MURMUR_QUALITY = "Systolic murmur quality"
+chars_to_int = {
+    SYSTOLIC_MURMUR_TIMING: {
+        "nan": np.nan,
+        "Early-systolic": "0", 
+        "Holosystolic": "1", 
+        "Mid-systolic": "2",
+        "Late-systolic": "3",
+    },
+    SYSTOLIC_MURMUR_SHAPE: {
+        "nan": np.nan,
+        "Decrescendo": "0", 
+        "Plateau": "1", 
+        "Diamond": "2", 
+        "Crescendo": "3"
+    },
+    SYSTOLIC_MURMUR_GRADING: {"nan": np.nan, "II/VI": "0", "I/VI": "1", "III/VI": "2"},
+    SYSTOLIC_MURMUR_PITCH: {"nan": np.nan, "Medium": "0", "Low": "1", "High": "2"},
+    SYSTOLIC_MURMUR_QUALITY: {"nan": np.nan, "Harsh": "0", "Blowing": "1", "Musical": "2"},
+}
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -36,6 +60,10 @@ def save_mappings_json():
         json.dump(int_to_murmurs, f)
     with open(feature_dir + "int_to_outcomes.json", "w") as f:
         json.dump(int_to_outcomes, f)
+    for c, to_int_dict in chars_to_int.items():
+        int_to_dict = {v: k for k, v in to_int_dict.items()}
+        with open(feature_dir + f"int_to_{'-'.join(c.lower().split(' '))}.json", "w") as f:
+            json.dump(int_to_dict, f)
 
     print(f"Murmur Mappings: {murmurs_to_int}")
     print(f"Outcome Mappings: {outcome_to_int}")
@@ -48,6 +76,13 @@ def read_data():
     sound_files = []
     murmurs = []
     outcomes = []
+    murmur_chars = {
+        SYSTOLIC_MURMUR_TIMING: [],
+        SYSTOLIC_MURMUR_SHAPE: [],
+        SYSTOLIC_MURMUR_GRADING: [],
+        SYSTOLIC_MURMUR_PITCH: [],
+        SYSTOLIC_MURMUR_QUALITY: [],
+    }
     audio_splits = []
     for dir in dirs:
         audio_dir = os.path.join(data_dir, dir)
@@ -62,6 +97,11 @@ def read_data():
                         murmurs.append(murmurs_to_int[line.split(":")[1].strip()])
                     elif line.startswith("#Outcome:"):
                         outcomes.append(outcome_to_int[line.split(":")[1].strip()])
+                    else:
+                        for c in murmur_chars.keys():
+                            if line.startswith(f"#{c}"):
+                                murmur_chars[c].append(chars_to_int[c][line.split(":")[1].strip()])
+
 
         sound_files.extend(files)
 
@@ -72,6 +112,8 @@ def read_data():
 
     murmurs = np.array(murmurs, dtype=np.int32)
     outcomes = np.array(outcomes, dtype=np.int32)
+    for c, val in murmur_chars.items():
+        np.save(feature_dir + f"{'-'.join(c.lower().split(' '))}.npy", np.array(val, dtype=np.float32))
 
     np.save(feature_dir + "sound_dir_loc.npy", np.array(sound_files))
     np.save(feature_dir + "train_test_split.npy", audio_splits)
