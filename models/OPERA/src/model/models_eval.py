@@ -494,6 +494,16 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.net = net
         self.freeze_encoder = freeze_encoder
 
+        if freeze_encoder == "early":
+
+            for param in net.patch_embed.parameters():
+                param.requires_grad = False
+
+            # Freeze the first 2 transformer blocks
+            for i in range(2):
+                for param in net.blocks[i].parameters():
+                    param.requires_grad = False
+
         # print(self.net)
 
         if head == "linear":
@@ -1033,6 +1043,10 @@ class AudioClassifierHeAR(pl.LightningModule):
             )
         else:
             raise NotImplementedError(f"head not supported: {head}")
+
+        if freeze_encoder == "freeze_embeddings":
+            for param in net.embeddings.parameters():
+                param.requires_grad = False
 
         weights_init(self.head)
         self.lr = lr
