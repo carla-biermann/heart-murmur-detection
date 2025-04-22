@@ -33,3 +33,4 @@ n_run: 5
 LOOCV: False
 mapgoogle: False
 avgprob: False
+freeze_encoder: early
