@@ -1374,8 +1374,15 @@ def linear_evaluation_heart(
 
     y_set = np.load(feature_dir + "train_test_split.npy")
     y_label = np.load(feature_dir + labels_filename)
-    print(f"Label distribution: {collections.Counter(y_label)}")
     x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
+
+    # Filter out NaN values (Circor murmur characteristics)
+    valid_indices = ~np.isnan(y_label)
+    x_data = x_data[valid_indices]
+    y_label = y_label[valid_indices].astype(np.int32)
+    y_set = y_set[valid_indices]
+    
+    print(f"Label distribution: {collections.Counter(y_label)}")
 
     feat_dim = x_data.shape[1]
     print(f"Feat_dim: {feat_dim}")
@@ -1900,7 +1907,15 @@ def main(cfg: DictConfig):
                     task = data_task_list[1]
                     feature_dir = f"feature/{cfg.task}_eval/"
                     labels_filename = "labels.npy"
-                elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
+                elif (
+                    cfg.task == "circor_murmurs"
+                    or cfg.task == "circor_outcomes"
+                    or cfg.task == "circor_systolic-murmur-grading"
+                    or cfg.task == "circor_systolic-murmur-pitch"
+                    or cfg.task == "circor_systolic-murmur-quality"
+                    or cfg.task == "circor_systolic-murmur-shape"
+                    or cfg.task == "circor_systolic-murmur-timing"
+                ):
                     data_task_list = cfg.task.split("_")
                     dataset_name = data_task_list[0]
                     task = data_task_list[1]
