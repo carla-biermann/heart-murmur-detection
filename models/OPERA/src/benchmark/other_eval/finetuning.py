@@ -935,6 +935,7 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            freeze_encoder=freeze_encoder,
             metrics=metrics,
             dataset=dataset_name,
             task=task
@@ -1074,7 +1075,7 @@ def finetune_heart(
                 task=task
             )
         else:
-            freeze_encoder = "early" if pretrain == "operaCE" else "none"
+            #freeze_encoder = "early" if pretrain == "operaCE" else "none"
             net = pretrained_model.encoder
             model = AudioClassifier(
                 net=net,
@@ -1162,6 +1163,8 @@ def finetune_heart(
             str(seed)
         ]
     )
+
+    ck_filename = ck_filename + "_early" if freeze_encoder == "early" else ck_filename
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
@@ -1271,6 +1274,7 @@ def main(cfg: DictConfig):
                     feature_dir="feature/circor_eval/",
                     labels_filename=f"{task}.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
                 )
             elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
                 task = cfg.task.split("_")[1]
@@ -1284,6 +1288,7 @@ def main(cfg: DictConfig):
                     feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="outcomes.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
                 )
             elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
                 data_task_list = cfg.task.split("_")
@@ -1299,6 +1304,7 @@ def main(cfg: DictConfig):
                     feature_dir=f"feature/{dataset_name}_eval/",
                     labels_filename=f"{task}.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
                 )
             elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                 task = cfg.task.split("_")[1]
@@ -1312,6 +1318,7 @@ def main(cfg: DictConfig):
                     feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
                 )
             elif cfg.task == "physionet16":
                 auc = finetune_heart(
@@ -1324,6 +1331,7 @@ def main(cfg: DictConfig):
                     feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
                 )
             auc_scores.append(auc)
         print("=" * 48)
