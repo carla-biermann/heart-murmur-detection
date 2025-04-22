@@ -86,7 +86,6 @@ class DecayLearningRate(pl.Callback):
 
 
 def get_weights_tensor(labels, n_cls):
-    
     label_counts = collections.Counter(labels)
     total_count = len(labels)
     class_freqs = np.array([label_counts[i] / total_count for i in range(n_cls)])
@@ -1494,7 +1493,7 @@ def linear_evaluation_heart(
             "task": task,
             "seed": seed,
             "gradient_clip_val": 1.0,
-            "loss": loss, 
+            "loss": loss,
         }
     )
 
@@ -1579,8 +1578,12 @@ def linear_evaluation_heart_cv(
         train_data = FeatureDataset((x_fold_train, y_fold_train))
         val_data = FeatureDataset((x_fold_val, y_fold_val))
 
-        train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
-        val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
+        train_loader = DataLoader(
+            train_data, batch_size=batch_size, num_workers=1, shuffle=True
+        )
+        val_loader = DataLoader(
+            val_data, batch_size=batch_size, num_workers=1, shuffle=False
+        )
 
         args = dict(
             feat_dim=feat_dim,
@@ -1705,30 +1708,35 @@ def main(cfg: DictConfig):
                     torch.manual_seed(seed)
                     torch.cuda.manual_seed(seed)
 
-                    if cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
+                    if (
+                        cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy"
+                    ):  # ZCHSound outcomes
                         data_task_list = cfg.task.split("_")
                         dataset_name = data_task_list[0]
-                        task=data_task_list[1]
+                        task = data_task_list[1]
                         feature_dir = f"feature/{cfg.task}_eval/"
                         labels_filename = "outcomes.npy"
-                    elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
+                    elif (
+                        cfg.task == "zchsound_clean_murmurs"
+                        or cfg.task == "zchsound_noisy_murmurs"
+                    ):  # ZCHSound murmurs
                         data_task_list = cfg.task.split("_")
                         dataset_name = f"{data_task_list[0]}_{data_task_list[1]}"
                         task = data_task_list[2]
-                        feature_dir=f"feature/{dataset_name}_eval/"
-                        labels_filename=f"{task}.npy"
+                        feature_dir = f"feature/{dataset_name}_eval/"
+                        labels_filename = f"{task}.npy"
                     elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                         data_task_list = cfg.task.split("_")
-                        dataset_name=data_task_list[0]
-                        task=data_task_list[1]
-                        feature_dir=f"feature/{cfg.task}_eval/"
-                        labels_filename="labels.npy"
+                        dataset_name = data_task_list[0]
+                        task = data_task_list[1]
+                        feature_dir = f"feature/{cfg.task}_eval/"
+                        labels_filename = "labels.npy"
                     elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
                         data_task_list = cfg.task.split("_")
-                        dataset_name=data_task_list[0]
-                        task=data_task_list[1]
-                        feature_dir="feature/circor_eval/"
-                        labels_filename=f"{data_task_list[1]}.npy"
+                        dataset_name = data_task_list[0]
+                        task = data_task_list[1]
+                        feature_dir = "feature/circor_eval/"
+                        labels_filename = f"{data_task_list[1]}.npy"
                     elif cfg.task == "physionet16":
                         dataset_name = cfg.task
                         task = ""
@@ -1753,7 +1761,9 @@ def main(cfg: DictConfig):
                 print("=" * 48)
                 print(auc_scores)
                 mean_auc = np.mean(auc_scores)
-                print(f"Mean AUC for l2_strength={l2_strength}, lr={lr}: {mean_auc:.3f} ± {np.std(auc_scores):.3f}")
+                print(
+                    f"Mean AUC for l2_strength={l2_strength}, lr={lr}: {mean_auc:.3f} ± {np.std(auc_scores):.3f}"
+                )
                 if mean_auc > best_auc:
                     best_auc = mean_auc
                     best_params = {"l2_strength": l2_strength, "lr": lr}
@@ -1867,30 +1877,35 @@ def main(cfg: DictConfig):
                     seed=seed,
                 )
             else:
-                if cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
+                if (
+                    cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy"
+                ):  # ZCHSound outcomes
                     data_task_list = cfg.task.split("_")
                     dataset_name = data_task_list[0]
-                    task=data_task_list[1]
+                    task = data_task_list[1]
                     feature_dir = f"feature/{cfg.task}_eval/"
                     labels_filename = "outcomes.npy"
-                elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
+                elif (
+                    cfg.task == "zchsound_clean_murmurs"
+                    or cfg.task == "zchsound_noisy_murmurs"
+                ):  # ZCHSound murmurs
                     data_task_list = cfg.task.split("_")
                     dataset_name = f"{data_task_list[0]}_{data_task_list[1]}"
                     task = data_task_list[2]
-                    feature_dir=f"feature/{dataset_name}_eval/"
-                    labels_filename=f"{task}.npy"
+                    feature_dir = f"feature/{dataset_name}_eval/"
+                    labels_filename = f"{task}.npy"
                 elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                     data_task_list = cfg.task.split("_")
-                    dataset_name=data_task_list[0]
-                    task=data_task_list[1]
-                    feature_dir=f"feature/{cfg.task}_eval/"
-                    labels_filename="labels.npy"
+                    dataset_name = data_task_list[0]
+                    task = data_task_list[1]
+                    feature_dir = f"feature/{cfg.task}_eval/"
+                    labels_filename = "labels.npy"
                 elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
                     data_task_list = cfg.task.split("_")
-                    dataset_name=data_task_list[0]
-                    task=data_task_list[1]
-                    feature_dir="feature/circor_eval/"
-                    labels_filename=f"{data_task_list[1]}.npy"
+                    dataset_name = data_task_list[0]
+                    task = data_task_list[1]
+                    feature_dir = "feature/circor_eval/"
+                    labels_filename = f"{data_task_list[1]}.npy"
                 elif cfg.task == "physionet16":
                     dataset_name = cfg.task
                     task = ""
@@ -1958,5 +1973,6 @@ def main(cfg: DictConfig):
         )
         print("=" * 48)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
