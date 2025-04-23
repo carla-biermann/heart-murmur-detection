@@ -1,12 +1,42 @@
 import random
+import os
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from efficientnet_pytorch import EfficientNet
 from torch.nn import functional as F
+from huggingface_hub.file_download import hf_hub_download
 
 from src.model.htsat.htsat import HTSATWrapper
+
+
+# Set device for GPU usage
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+
+ENCODER_PATH_OPERA_CE_EFFICIENTNET = "cks/model/encoder-operaCE.ckpt"
+ENCODER_PATH_OPERA_CT_HT_SAT = "cks/model/encoder-operaCT.ckpt"
+ENCODER_PATH_OPERA_GT_VIT = "cks/model/encoder-operaGT.ckpt"
+
+
+def get_encoder_path(pretrain):
+    encoder_paths = {
+        "operaCT": ENCODER_PATH_OPERA_CT_HT_SAT,
+        "operaCE": ENCODER_PATH_OPERA_CE_EFFICIENTNET,
+        "operaGT": ENCODER_PATH_OPERA_GT_VIT,
+    }
+    if not os.path.exists(encoder_paths[pretrain]):
+        print("Model checkpoint not found, downloading from Hugging Face")
+        download_ckpt(pretrain)
+    return encoder_paths[pretrain]
+
+
+def download_ckpt(pretrain):
+    model_repo = "evelyn0414/OPERA"
+    model_name = "encoder-" + pretrain + ".ckpt"
+    hf_hub_download(model_repo, model_name, local_dir="cks/model")
 
 
 class Encoder(torch.nn.Module):
@@ -178,6 +208,7 @@ class ColaMD(pl.LightningModule):
         num_batch=[258.0, 288, 4, 51, 75, 146, 138],
         out_emb=2048,
         max_len=251,
+        pretrain=None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -195,6 +226,11 @@ class ColaMD(pl.LightningModule):
             self.dim_fea = self.encoder.out_emb
             if dim_hidden > self.dim_fea:
                 self.dim_hidden = self.dim_fea
+        if pretrain:
+            encoder_path = get_encoder_path(pretrain)
+            print("loading weights from", encoder_path)
+            ckpt = torch.load(encoder_path)
+            self.encoder.load_state_dict(ckpt["state_dict"], strict=False)
         self.encoder_model = encoder
         print(num_batch)
         self.num_batch = [b / np.sum(num_batch) for b in num_batch]
