@@ -6,15 +6,17 @@
 
 
 import argparse
+import time
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from lightning.pytorch.utilities import CombinedLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+import wandb
 
 from src.model.models_cola import ColaMD
 from src.util import random_crop, random_mask, random_multiply
@@ -100,6 +102,11 @@ class DecayLearningRate(pl.Callback):
             self.old_lrs[opt_idx] = new_lr_group
 
 
+def get_wandb_name(title):
+    s = time.gmtime(time.time())
+    return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{title}"
+
+
 def train_multiple_data(
     title,
     data_source={"covidbreath": 251},
@@ -109,12 +116,13 @@ def train_multiple_data(
     encoder="efficientnet",
     n_epoches=512,
     training_method="cola",
+    pretrain=None
 ):
     print(data_source)
 
     method = training_method
 
-    batch_size = 128
+    batch_size = 64
     epochs = n_epoches
 
     num_batch = []
@@ -163,6 +171,9 @@ def train_multiple_data(
 
         elif dt == "covidUKcough":
             filenames = list(np.load("datasets/covidUK/entire_cough_filenames.npy"))
+
+        elif dt in ["circor", "physionet16", "zchsound_clean", "zchsound_noisy", "pascal_A", "pascal_B"]:
+            filenames = list(np.load(f"feature/{dt}_eval/entire_spec_filenames.npy"))
 
         # # plotting data length distribution
         # data_lengths = []
@@ -214,11 +225,37 @@ def train_multiple_data(
             dim_hidden=dim_hidden,
             dim_out=dim_out,
             num_batch=num_batch,
+            pretrain=pretrain,
         )
-    logger = CSVLogger(
-        save_dir="cks/logs",
-        name="combined",
-        version=title,
+    # logger = CSVLogger(
+    #     save_dir="cks/logs",
+    #     name="combined",
+    #     version=title,
+    # )
+
+    wandb_logger = WandbLogger(
+        project="Heart-Sound-Analysis-PT",
+        name=get_wandb_name(title),
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "dim_fea": dim_fea,
+            "dim_hidden": dim_hidden,
+            "dim_out": dim_out,
+            "encoder": encoder,
+            "training_method": training_method,
+            "pretrain": pretrain,
+            "circor": "circor" in data_source,
+            "physionet16": "physionet16" in data_source,
+            "pascal_A": "pascal_A" in data_source,
+            "pascal_B": "pascal_B" in data_source,
+            "zchsound_clean": "zchsound_clean" in data_source,
+            "zchsound_noisy": "zchsound_noisy" in data_source,
+        }
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -226,7 +263,7 @@ def train_multiple_data(
         mode="min",
         dirpath="cks/model/combined/" + "_".join(data_source.keys()),
         filename="encoder-" + title + "-{epoch:02d}--{valid_acc:.2f}-{valid_loss:.4f}",
-        every_n_epochs=50,
+        every_n_epochs=10,
         save_top_k=5,
     )
 
@@ -234,14 +271,16 @@ def train_multiple_data(
         max_epochs=epochs,
         accelerator="gpu",
         devices=1,
-        logger=logger,
+        logger=wandb_logger,
         callbacks=[DecayLearningRate(), checkpoint_callback],
+        enable_progress_bar=False,
     )
 
     print("======================SSL Training==============================")
     trainer.fit(model, train_loader, val_loader)
     print("======================SSL Testing==============================")
     trainer.test(dataloaders=val_loader)
+    wandb.finish()
 
 
 if __name__ == "__main__":
@@ -258,8 +297,15 @@ if __name__ == "__main__":
     parser.add_argument("--hf_lung", type=bool, default=False)
     parser.add_argument("--covidUKexhalation", type=bool, default=False)
     parser.add_argument("--covidUKcough", type=bool, default=False)
+    parser.add_argument("--circor", type=bool, default=False)
+    parser.add_argument("--pascal_A", type=bool, default=False)
+    parser.add_argument("--pascal_B", type=bool, default=False)
+    parser.add_argument("--physionet16", type=bool, default=False)
+    parser.add_argument("--zchsound_clean", type=bool, default=False)
+    parser.add_argument("--zchsound_noisy", type=bool, default=False)
 
     # control training
+    parser.add_argument("--pretrain", type=str, default=None)
     parser.add_argument("--dim_hidden", type=int, default=1280)
     parser.add_argument("--dim_out", type=int, default=512)
     parser.add_argument("--encoder", type=str, default="efficientnet")
@@ -280,6 +326,12 @@ if __name__ == "__main__":
         "hf_lung": 200,
         "covidUKexhalation": 100,
         "covidUKcough": 50,
+        "circor": 251,
+        "pascal_A": 63,
+        "pascal_B": 63,
+        "physionet16": 251,
+        "zchsound_clean": 251,
+        "zchsound_noisy": 251,
     }
 
     torch.manual_seed(args.seed)
@@ -297,4 +349,5 @@ if __name__ == "__main__":
         encoder=args.encoder,
         n_epoches=args.epoches,
         training_method=args.method,
+        pretrain=args.pretrain,
     )
