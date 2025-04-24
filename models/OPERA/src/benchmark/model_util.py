@@ -52,109 +52,68 @@ def extract_opera_feature(
     from_spec=False,
     dim=1280,
     pad0=False,
-    sr=16000,
-    butterworth_filter=None,
-    lowcut=200,
-    highcut=1800,
     ckpt_path=None
 ):
     """
     extract features using OPERA models
     """
-    print(f"Extracting features from {pretrain} model with input_sec={input_sec}")
-    MAE = "mae" in pretrain or "GT" in pretrain
+
+    print("extracting feature from {} model with input_sec {}".format(pretrain, input_sec))
+
+    MAE = ("mae" in pretrain or "GT" in pretrain)
 
     encoder_path = get_encoder_path(pretrain) if not ckpt_path else ckpt_path
     ckpt = torch.load(encoder_path, map_location=device)
     model = initialize_pretrained_model(pretrain)
-    model.load_state_dict(ckpt["state_dict"], strict=False)
     model.eval()
+    model.load_state_dict(ckpt["state_dict"], strict=False)
 
     opera_features = []
 
-    with torch.no_grad():
-        for audio_file in tqdm(sound_dir_loc):
-            if MAE:
-                if from_spec:
-                    data = [
-                        audio_file[i : i + 256] for i in range(0, len(audio_file), 256)
-                    ]
-                else:
-                    data = (
-                        get_split_signal_librosa(
-                            "",
-                            audio_file[:-4],
-                            spectrogram=True,
-                            input_sec=input_sec,
-                            sample_rate=sr,
-                            butterworth_filter=butterworth_filter,
-                            lowcut=lowcut,
-                            highcut=highcut,
-                        )
-                        if not from_spec
-                        else [
-                            audio_file[i : i + 256]
-                            for i in range(0, len(audio_file), 256)
-                        ]
-                    )
-                features = []
-                for x in data:
-                    if (
-                        x.shape[0] >= 16
-                    ):  # Kernel size can't be greater than actual input size
-                        x = np.expand_dims(x, axis=0)
-                        x = torch.tensor(x, dtype=torch.float).to(device)
-                        fea = model.forward_feature(x).detach().cpu().numpy()
-                        features.append(fea)
-                features_sta = np.mean(features, axis=0)
-                opera_features.append(features_sta.tolist())
+    for audio_file in tqdm(sound_dir_loc):
+
+        if MAE:
+            if from_spec:
+                data = [audio_file[i: i+256] for i in range(0, len(audio_file), 256)]
             else:
-                #  put entire audio into the model
-                if from_spec:
-                    data = audio_file
+                data = get_split_signal_librosa("", audio_file[:-4], spectrogram=True, input_sec=input_sec) ##8.18s --> T=256
+            features = []
+            for x in data:
+                if x.shape[0]>=16: # Kernel size can't be greater than actual input size
+                    x = np.expand_dims(x, axis=0)
+                    x = torch.tensor(x, dtype=torch.float).to(device)
+                    fea = model.forward_feature(x).detach().cpu().numpy()
+                    features.append(fea)
+            features_sta = np.mean(features, axis=0)
+            # print('MAE ViT feature dim:', features_sta.shape)
+            opera_features.append(features_sta.tolist())
+        else:
+            #  put entire audio into the model
+            if from_spec:
+                data = audio_file
+            else:
+                # input is filename of an audio
+                max_sec = 32 if pretrain == "operaCT" else None
+                if pad0:
+                    data = get_entire_signal_librosa("", audio_file[:-4], spectrogram=True, input_sec=input_sec, pad=True, types='zero', max_sec=max_sec)
                 else:
-                    # input is filename of an audio
-                    if pad0:
-                        data = get_entire_signal_librosa(
-                            "",
-                            audio_file[:-4],
-                            spectrogram=True,
-                            input_sec=input_sec,
-                            pad=True,
-                            types="zero",
-                            sample_rate=sr,
-                            butterworth_filter=butterworth_filter,
-                            lowcut=lowcut,
-                            highcut=highcut,
-                        )
-                    else:
-                        data = get_entire_signal_librosa(
-                            "",
-                            audio_file[:-4],
-                            spectrogram=True,
-                            input_sec=input_sec,
-                            pad=True,
-                            sample_rate=sr,
-                            butterworth_filter=butterworth_filter,
-                            lowcut=lowcut,
-                            highcut=highcut,
-                        )
+                    data = get_entire_signal_librosa("", audio_file[:-4], spectrogram=True, input_sec=input_sec, pad=True, max_sec=max_sec)
+            
+            data = np.array(data)
 
-                data = np.array(data)
+            # for entire audio, batchsize = 1
+            data = np.expand_dims(data, axis=0)
 
-                # for entire audio, batchsize = 1
-                data = np.expand_dims(data, axis=0)
+            x = torch.tensor(data, dtype=torch.float).to(device)
+            features = model.extract_feature(x, dim).detach().cpu().numpy()
 
-                x = torch.tensor(data, dtype=torch.float).to(device)
-                features = model.extract_feature(x, dim).detach().cpu().numpy()
-
-                # for entire audio, batchsize = 1
-                opera_features.append(features.tolist()[0])
+            # for entire audio, batchsize = 1
+            opera_features.append(features.tolist()[0])
 
     x_data = np.array(opera_features)
-    if MAE:
-        x_data = x_data.squeeze(1)
-    print(f"Feature extraction completed. X shape: {x_data.shape}")
+    if MAE: 
+        x_data = x_data.squeeze(1) 
+    #print(x_data.shape)
     return x_data
 
 

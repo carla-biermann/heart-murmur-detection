@@ -31,21 +31,26 @@ SYSTOLIC_MURMUR_QUALITY = "Systolic murmur quality"
 chars_to_int = {
     SYSTOLIC_MURMUR_TIMING: {
         "nan": np.nan,
-        "Early-systolic": "0", 
-        "Holosystolic": "1", 
+        "Early-systolic": "0",
+        "Holosystolic": "1",
         "Mid-systolic": "2",
         "Late-systolic": "3",
     },
     SYSTOLIC_MURMUR_SHAPE: {
         "nan": np.nan,
-        "Decrescendo": "0", 
-        "Plateau": "1", 
-        "Diamond": "2", 
-        "Crescendo": "3"
+        "Decrescendo": "0",
+        "Plateau": "1",
+        "Diamond": "2",
+        "Crescendo": "3",
     },
     SYSTOLIC_MURMUR_GRADING: {"nan": np.nan, "II/VI": "0", "I/VI": "1", "III/VI": "2"},
     SYSTOLIC_MURMUR_PITCH: {"nan": np.nan, "Medium": "0", "Low": "1", "High": "2"},
-    SYSTOLIC_MURMUR_QUALITY: {"nan": np.nan, "Harsh": "0", "Blowing": "1", "Musical": "2"},
+    SYSTOLIC_MURMUR_QUALITY: {
+        "nan": np.nan,
+        "Harsh": "0",
+        "Blowing": "1",
+        "Musical": "2",
+    },
 }
 
 # Check if audio directory exists
@@ -55,6 +60,7 @@ if not os.path.exists(data_dir):
         f"Folder not found: {data_dir}, please ensure the dataset is downloaded."
     )
 
+
 def save_mappings_json():
     with open(feature_dir + "int_to_murmurs.json", "w") as f:
         json.dump(int_to_murmurs, f)
@@ -62,11 +68,14 @@ def save_mappings_json():
         json.dump(int_to_outcomes, f)
     for c, to_int_dict in chars_to_int.items():
         int_to_dict = {v: k for k, v in to_int_dict.items()}
-        with open(feature_dir + f"int_to_{'-'.join(c.lower().split(' '))}.json", "w") as f:
+        with open(
+            feature_dir + f"int_to_{'-'.join(c.lower().split(' '))}.json", "w"
+        ) as f:
             json.dump(int_to_dict, f)
 
     print(f"Murmur Mappings: {murmurs_to_int}")
     print(f"Outcome Mappings: {outcome_to_int}")
+
 
 def read_data():
     save_mappings_json()
@@ -100,8 +109,9 @@ def read_data():
                     else:
                         for c in murmur_chars.keys():
                             if line.startswith(f"#{c}"):
-                                murmur_chars[c].append(chars_to_int[c][line.split(":")[1].strip()])
-
+                                murmur_chars[c].append(
+                                    chars_to_int[c][line.split(":")[1].strip()]
+                                )
 
         sound_files.extend(files)
 
@@ -113,7 +123,10 @@ def read_data():
     murmurs = np.array(murmurs, dtype=np.int32)
     outcomes = np.array(outcomes, dtype=np.int32)
     for c, val in murmur_chars.items():
-        np.save(feature_dir + f"{'-'.join(c.lower().split(' '))}.npy", np.array(val, dtype=np.float32))
+        np.save(
+            feature_dir + f"{'-'.join(c.lower().split(' '))}.npy",
+            np.array(val, dtype=np.float32),
+        )
 
     np.save(feature_dir + "sound_dir_loc.npy", np.array(sound_files))
     np.save(feature_dir + "train_test_split.npy", audio_splits)
@@ -213,10 +226,6 @@ def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
         input_sec=input_sec,
         dim=dim,
         pad0=True,
-        sr=2000,
-        butterworth_filter=3,
-        lowcut=20,
-        highcut=800,
     )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))

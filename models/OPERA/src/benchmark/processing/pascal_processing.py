@@ -137,7 +137,7 @@ def extract_and_save_embeddings(
 ):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     opera_features = extract_opera_feature(
-        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim
+        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim, ckpt_path=ckpt_path,
     )
     feature += str(dim)
     suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
@@ -148,8 +148,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrain", type=str, default="operaCE")
     parser.add_argument("--dim", type=int, default=1280)
-    parser.add_argument("--min_len_cnn", type=int, default=8)
-    parser.add_argument("--min_len_htsat", type=int, default=8)
+    parser.add_argument("--min_len_cnn", type=int, default=2)
+    parser.add_argument("--min_len_htsat", type=int, default=2)
     parser.add_argument("--dataset", type=str, default="A")
     parser.add_argument("--fine_tuned", type=str, default=None)
     parser.add_argument("--ckpt_path", type=str, default=None)

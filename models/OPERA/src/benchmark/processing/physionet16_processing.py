@@ -167,9 +167,7 @@ def extract_and_save_embeddings(
         pretrain=feature,
         input_sec=input_sec,
         dim=dim,
-        sr=1000,  # following pre-processing from https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7868819
-        lowcut=25,
-        highcut=400,
+        pad0=True,
         ckpt_path=ckpt_path,
     )
     feature += str(dim)

@@ -126,10 +126,7 @@ def extract_and_save_embeddings(
         input_sec=input_sec,
         dim=dim,
         pad0=pad0,
-        sr=2000,
-        butterworth_filter=3,
-        lowcut=20,
-        highcut=650,
+        ckpt_path=ckpt_path,
     )
     feature += str(dim)
     suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
