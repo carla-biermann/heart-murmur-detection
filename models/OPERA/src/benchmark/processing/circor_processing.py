@@ -53,6 +53,8 @@ chars_to_int = {
     },
 }
 
+OPERACT_HEART_CKPT_PATH = "cks/model/combined/pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-nocircor-epoch=189--valid_acc=0.97-valid_loss=0.2715.ckpt"
+
 # Check if audio directory exists
 if not os.path.exists(data_dir):
     print(os.getcwd())
@@ -220,12 +222,19 @@ def extract_and_save_embeddings_baselines(feature="audiomae"):
 
 def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+    if feature == "operaCT-heart":
+        ckpt_path = OPERACT_HEART_CKPT_PATH
+        pretrain = "operaCT"  # necessary as input to extract_opera_feature
+    else:
+        ckpt_path = None
+        pretrain = feature
     opera_features = extract_opera_feature(
         sound_dir_loc,
-        pretrain=feature,
+        pretrain=pretrain,
         input_sec=input_sec,
         dim=dim,
         pad0=True,
+        ckpt_path=ckpt_path,
     )
     feature += str(dim)
     np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
@@ -259,7 +268,7 @@ if __name__ == "__main__":
     if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
         extract_and_save_embeddings_baselines(args.pretrain)
     else:
-        if args.pretrain == "operaCT":
+        if args.pretrain == "operaCT" or args.pretrain == "operaCT-heart":
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
             input_sec = args.min_len_cnn
