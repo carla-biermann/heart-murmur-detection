@@ -214,6 +214,7 @@ def get_entire_signal_librosa(
     types="repeat",
     lowcut=200,
     highcut=1800,
+    max_sec=None
 ):
     if not from_cycle:
         # load file with specified sample rate (also converts to mono)
@@ -252,6 +253,9 @@ def get_entire_signal_librosa(
             return None
         else:
             yt = split_pad_sample([yt, 0, 0], input_sec, sample_rate, types)[0][0]
+    if max_sec and duration > max_sec:
+        yt = yt[: int(max_sec * sample_rate)]
+        print(f"Trimmed audio to {max_sec} seconds")
 
     # directly process to spectrogram
     if spectrogram:
