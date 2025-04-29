@@ -116,7 +116,8 @@ def train_multiple_data(
     encoder="efficientnet",
     n_epoches=512,
     training_method="cola",
-    pretrain=None
+    pretrain=None,
+    freeze_encoder="none",
 ):
     print(data_source)
 
@@ -226,6 +227,7 @@ def train_multiple_data(
             dim_out=dim_out,
             num_batch=num_batch,
             pretrain=pretrain,
+            freeze_encoder=freeze_encoder,
         )
     # logger = CSVLogger(
     #     save_dir="cks/logs",
@@ -255,6 +257,7 @@ def train_multiple_data(
             "pascal_B": "pascal_B" in data_source,
             "zchsound_clean": "zchsound_clean" in data_source,
             "zchsound_noisy": "zchsound_noisy" in data_source,
+            "freeze_encoder": freeze_encoder,
         }
     )
 
@@ -311,6 +314,7 @@ if __name__ == "__main__":
     parser.add_argument("--encoder", type=str, default="efficientnet")
     parser.add_argument("--epoches", type=int, default=512)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--freeze_encoder", type=str, default="none")
 
     # training goal
     parser.add_argument("--method", type=str, default="cola")
@@ -350,4 +354,5 @@ if __name__ == "__main__":
         n_epoches=args.epoches,
         training_method=args.method,
         pretrain=args.pretrain,
+        freeze_encoder=args.freeze_encoder,
     )

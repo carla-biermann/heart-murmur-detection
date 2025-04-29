@@ -209,6 +209,7 @@ class ColaMD(pl.LightningModule):
         out_emb=2048,
         max_len=251,
         pretrain=None,
+        freeze_encoder="none"
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -244,6 +245,21 @@ class ColaMD(pl.LightningModule):
         self.layer_norm = torch.nn.LayerNorm(normalized_shape=dim_out)
         self.linear = torch.nn.Linear(dim_out, dim_out, bias=False)
         self.batch_size = batch_size
+
+        if freeze_encoder == "early" and encoder == "htsat":
+            # Freezing the spectrogram extractor layers
+            for param in self.encoder.htsat.spectrogram_extractor.stft.parameters():
+                param.requires_grad = False
+
+            # If there are other components under the spectrogram extractor (e.g., logmel_extractor), freeze those too
+            for param in self.encoder.htsat.logmel_extractor.parameters():
+                param.requires_grad = False
+
+            # Freeze the first layer
+            for block in self.encoder.htsat.layers[0]:
+                for param in block.parameters():
+                    param.requires_grad = False
+
 
     def forward(self, x):
         x1, x2 = x
