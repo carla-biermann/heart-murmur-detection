@@ -39,7 +39,7 @@ def circor_weighted_murmur_acc(predicted_tensor, y_tensor):
     cm = torch.zeros((3, 3), dtype=torch.int32)
 
     for true, pred in zip(y_tensor, predicted_tensor):
-        cm[true.item(), pred.item()] += 1
+        cm[pred.item(), true.item()] += 1
 
     # Extract needed counts
     mPP = cm[1, 1]
