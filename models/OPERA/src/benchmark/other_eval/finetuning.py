@@ -852,8 +852,7 @@ def finetune_heart(
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
 ):
-    n_cls = len(set(np.load(feature_dir + labels_filename)))
-
+    
     run_name = get_wandb_name(pretrain, f"{dataset_name}-{task}", head)
     wandb_logger = WandbLogger(
         project="Heart-Sound-Analysis-FT",
@@ -890,6 +889,19 @@ def finetune_heart(
         "head",
         head,
     )
+
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + labels_filename)
+
+    # Filter out NaN values (Circor murmur characteristics)
+    valid_indices = ~np.isnan(y_label)
+    y_label = y_label[valid_indices].astype(np.int32)
+    y_set = y_set[valid_indices]
+
+    n_cls = len(set(y_label))
+
+    print(f"Label distribution: {collections.Counter(y_label)}")
+    print(f"Unique labels: {collections.Counter(y_set)}")
 
     from_audio = False
     if pretrain == "audiomae":
@@ -1106,10 +1118,8 @@ def finetune_heart(
         }
     )
 
-    y_set = np.load(feature_dir + "train_test_split.npy")
-    y_label = np.load(feature_dir + labels_filename)
-    print(f"Label distribution: {collections.Counter(y_label)}")
-    print(f"Unique labels: {collections.Counter(y_set)}")
+    # Filter out NaN values
+    x_data = x_data[valid_indices]
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1262,7 +1272,15 @@ def main(cfg: DictConfig):
                     l2_strength=1e-4,
                     feat_dim=cfg.dim,
                 )
-            elif cfg.task == "circor_murmurs" or cfg.task == "circor_outcomes":
+            elif (
+                cfg.task == "circor_murmurs"
+                or cfg.task == "circor_outcomes"
+                or cfg.task == "circor_systolic-murmur-grading"
+                or cfg.task == "circor_systolic-murmur-pitch"
+                or cfg.task == "circor_systolic-murmur-quality"
+                or cfg.task == "circor_systolic-murmur-shape"
+                or cfg.task == "circor_systolic-murmur-timing"
+            ):
                 task = cfg.task.split("_")[1]
                 auc = finetune_heart(
                     pretrain=cfg.pretrain,
