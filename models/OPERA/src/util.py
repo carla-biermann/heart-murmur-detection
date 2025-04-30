@@ -5,6 +5,7 @@
 # some code below is referenced from https://github.com/raymin0223/patch-mix_contrastive_learning and https://github.com/CVxTz/COLA_pytorch
 
 
+import collections
 import math
 import os
 import random
@@ -630,6 +631,18 @@ def train_test_split_from_list(X, Y, train_test):
             X_test.append(X[i])
             y_test.append(Y[i])
     return np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)
+
+
+def get_weights_tensor(labels, n_cls):
+    label_counts = collections.Counter(labels)
+    total_count = len(labels)
+    class_freqs = np.array([label_counts[i] / total_count for i in range(n_cls)])
+
+    # Inverse frequency and normalize
+    class_weights = 1.0 / class_freqs
+    class_weights = class_weights / class_weights.sum()
+
+    return torch.tensor(class_weights, dtype=torch.float)
 
 
 def plot_tsne(x_plot, y_plot, order=None, color="hls", title=""):

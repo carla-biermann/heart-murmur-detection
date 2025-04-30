@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.model.models_eval import LinearHead, LinearHeadR
-from src.util import downsample_balanced_dataset, train_test_split_from_list
+from src.util import downsample_balanced_dataset, train_test_split_from_list, get_weights_tensor
 
 
 class FeatureDataset(torch.utils.data.Dataset):
