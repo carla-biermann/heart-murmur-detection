@@ -5,6 +5,7 @@ import time
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 from lightning.pytorch import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -29,6 +30,7 @@ from src.util import (
     random_mask,
     random_multiply,
     train_test_split_from_list,
+    get_weights_tensor,
 )
 
 torch.backends.cudnn.deterministic = True
@@ -845,6 +847,7 @@ def finetune_heart(
     batch_size=64,
     lr=1e-4,
     head="linear",
+    loss="unweighted",
     feat_dim=1280,
     dataset_name="circor",
     task="murmurs",
@@ -852,7 +855,6 @@ def finetune_heart(
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
 ):
-    
     run_name = get_wandb_name(pretrain, f"{dataset_name}-{task}", head)
     wandb_logger = WandbLogger(
         project="Heart-Sound-Analysis-FT",
@@ -902,6 +904,14 @@ def finetune_heart(
 
     print(f"Label distribution: {collections.Counter(y_label)}")
     print(f"Unique labels: {collections.Counter(y_set)}")
+    y_label_train = y_label[y_set == "train"]
+
+    if loss == "weighted":
+        weights_tensor = get_weights_tensor(y_label_train, n_cls)
+        print("Weights:", weights_tensor)
+        loss_func = nn.CrossEntropyLoss(weight=weights_tensor)
+    else:
+        loss_func = None
 
     from_audio = False
     if pretrain == "audiomae":
@@ -947,6 +957,7 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            loss_func=loss_func,
             freeze_encoder=freeze_encoder,
             metrics=metrics,
             dataset=dataset_name,
@@ -969,7 +980,8 @@ def finetune_heart(
             feat_dim=feat_dim,
             metrics=metrics,
             dataset=dataset_name,
-            task=task
+            task=task,
+            loss_func=loss_func,
         )
         from_audio = True
     elif pretrain == "clap2023":
@@ -988,7 +1000,8 @@ def finetune_heart(
             feat_dim=feat_dim,
             metrics=metrics,
             dataset=dataset_name,
-            task=task
+            task=task,
+            loss_func=loss_func,
         )
         from_audio = True
     elif pretrain == "hear":
@@ -1040,6 +1053,7 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            loss_func=loss_func,
             metrics=metrics,
             dataset=dataset_name,
             task=task
@@ -1082,6 +1096,7 @@ def finetune_heart(
                 lr=lr,
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
+                loss_func=loss_func,
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task
@@ -1097,6 +1112,7 @@ def finetune_heart(
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
                 freeze_encoder=freeze_encoder,
+                loss_func=loss_func,
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task
@@ -1114,7 +1130,8 @@ def finetune_heart(
             "seed": seed,
             "dataset": dataset_name,
             "task": task,
-            "freeze_encoder": freeze_encoder
+            "freeze_encoder": freeze_encoder,
+            "loss": loss,
         }
     )
 
@@ -1175,6 +1192,7 @@ def finetune_heart(
     )
 
     ck_filename = ck_filename + "_early" if freeze_encoder == "early" else ck_filename
+    ck_filename = ck_filename + "_weighted" if loss == "weighted" else ck_filename
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
@@ -1293,6 +1311,7 @@ def main(cfg: DictConfig):
                     labels_filename=f"{task}.npy",
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
                 )
             elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
                 task = cfg.task.split("_")[1]
@@ -1307,6 +1326,7 @@ def main(cfg: DictConfig):
                     labels_filename="outcomes.npy",
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
                 )
             elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
                 data_task_list = cfg.task.split("_")
@@ -1323,6 +1343,7 @@ def main(cfg: DictConfig):
                     labels_filename=f"{task}.npy",
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
                 )
             elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                 task = cfg.task.split("_")[1]
@@ -1337,6 +1358,7 @@ def main(cfg: DictConfig):
                     labels_filename="labels.npy",
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
                 )
             elif cfg.task == "physionet16":
                 auc = finetune_heart(
@@ -1350,6 +1372,7 @@ def main(cfg: DictConfig):
                     labels_filename="labels.npy",
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
                 )
             auc_scores.append(auc)
         print("=" * 48)
