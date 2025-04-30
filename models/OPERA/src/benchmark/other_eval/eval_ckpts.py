@@ -1,3 +1,4 @@
+import collections
 import numpy as np
 import os
 import glob
@@ -6,6 +7,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -20,6 +22,7 @@ from src.model.models_eval import (
 from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
 from src.benchmark.other_eval.finetuning import AudioDataset, get_wandb_name
 from src.benchmark.linear_eval import FeatureDataset
+from src.util import get_weights_tensor
 
 
 def evaluate_linear_head(
@@ -35,6 +38,7 @@ def evaluate_linear_head(
     task="murmurs",
     feature_dir="feature/circor_eval/",
     labels_filename="murmurs.npy",
+    loss="unweighted",
 ):
     y_set = np.load(feature_dir + "train_test_split.npy")
     y_label = np.load(feature_dir + labels_filename)
@@ -42,6 +46,8 @@ def evaluate_linear_head(
 
     feat_dim = x_data.shape[1]
     n_cls = len(set(y_label))
+
+    y_label_train = y_label[y_set == "train"]
 
     x_data_test = x_data[y_set == "test"]
     y_label_test = y_label[y_set == "test"]
@@ -67,6 +73,8 @@ def evaluate_linear_head(
         ]
     )
 
+    ck_prefix = ck_prefix + "_weighted" if loss == "weighted" else ck_prefix
+
     # Search for the checkpoint file(s) that match
     ck_files = glob.glob(os.path.join(ck_path_dir, f"{ck_prefix}*.ckpt"))
 
@@ -79,6 +87,12 @@ def evaluate_linear_head(
     ckpt_path = ck_files[0]
     print(f"Found checkpoint: {ckpt_path}")
 
+    if loss == "weighted":
+        weights_tensor = get_weights_tensor(y_label_train, n_cls)
+        loss_func = nn.CrossEntropyLoss(weight=weights_tensor)
+    else:
+        loss_func = None
+
     model = LinearHead.load_from_checkpoint(
         checkpoint_path=ckpt_path,
         feat_dim=feat_dim,
@@ -88,6 +102,7 @@ def evaluate_linear_head(
         metrics=metrics,
         dataset=dataset_name,
         task=task,
+        loss_func=loss_func,
     )
 
     wandb_logger = WandbLogger(
@@ -142,8 +157,28 @@ def evaluate_finetuned_model(
     feature_dir="feature/circor_eval/",
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
+    loss="weighted", # change
 ):
-    n_cls = len(set(np.load(feature_dir + labels_filename)))
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + labels_filename)
+
+    # Filter out NaN values (Circor murmur characteristics)
+    valid_indices = ~np.isnan(y_label)
+    y_label = y_label[valid_indices].astype(np.int32)
+    y_set = y_set[valid_indices]
+
+    n_cls = len(set(y_label))
+    print("set y_set", set(y_set))
+    y_label_train = y_label[y_set == "train"]
+
+    if loss == "weighted":
+        weights_tensor = get_weights_tensor(y_label_train, n_cls)
+        print("Weights:", weights_tensor)
+        loss_func = nn.CrossEntropyLoss(weight=weights_tensor)
+    else:
+        loss_func = None
+
+    
     ck_path_dir = (
         f"cks/finetune/{dataset_name}_{task}/"
         if task
@@ -162,8 +197,11 @@ def evaluate_finetuned_model(
         ]
     )
 
+    ck_prefix = ck_prefix + "_early" if freeze_encoder == "early" else ck_prefix
+    ck_prefix = ck_prefix + "_weighted" if loss == "weighted" else ck_prefix
+
     # Search for the checkpoint file(s) that match
-    ck_files = glob.glob(os.path.join(ck_path_dir, f"{ck_prefix}*.ckpt"))
+    ck_files = glob.glob(os.path.join(ck_path_dir, f"{ck_prefix}-*.ckpt"))
 
     # Pick the first match (or handle multiple matches if needed)
     if not ck_files:
@@ -172,6 +210,7 @@ def evaluate_finetuned_model(
         )
 
     ckpt_path = ck_files[0]
+    ckpt_path = "cks/finetune/zchsound_clean_murmurs/finetuning_linear_clap2023_64_0.0001_64_1e-05_0_weighted-epoch=08-valid_auc=0.97-v1.ckpt"
     print(f"Found checkpoint: {ckpt_path}")
 
     wandb_logger = WandbLogger(
@@ -193,6 +232,7 @@ def evaluate_finetuned_model(
             "dataset": dataset_name,
             "task": task,
             "eval_only": True,
+            "loss": loss,
         }
     )
 
@@ -243,6 +283,7 @@ def evaluate_finetuned_model(
             metrics=metrics,
             dataset=dataset_name,
             task=task,
+            loss_func=loss_func,
         )
 
     elif pretrain == "clap":
@@ -263,9 +304,30 @@ def evaluate_finetuned_model(
             metrics=metrics,
             dataset=dataset_name,
             task=task,
+            loss_func=loss_func,
         )
         from_audio = True
+    elif pretrain == "clap2023":
+        from src.benchmark.baseline.msclap import CLAP
 
+        audio_files = np.load(feature_dir + "sound_dir_loc.npy")
+        x_data = np.array(audio_files)
+        clap_model = CLAP(version="2023", use_cuda=True)
+        net = clap_model.clap.audio_encoder
+        model = AudioClassifierCLAP.load_from_checkpoint(
+            checkpoint_path=ckpt_path,
+            net=net,
+            head=head,
+            feat_dim=feat_dim,
+            classes=n_cls,
+            lr=lr,
+            l2_strength=l2_strength,
+            metrics=metrics,
+            dataset=dataset_name,
+            task=task,
+            loss_func=loss_func,
+        )
+        from_audio = True
     else:
         if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
             from src.util import get_split_signal_librosa
@@ -308,6 +370,7 @@ def evaluate_finetuned_model(
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task,
+                loss_func=loss_func,
             )
         else:
             freeze_encoder = "early" if pretrain == "operaCE" else "none"
@@ -324,15 +387,17 @@ def evaluate_finetuned_model(
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task,
+                loss_func=loss_func,
             )
+
+    model.eval()
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder})
 
-    y_set = np.load(feature_dir + "train_test_split.npy")
-    y_label = np.load(feature_dir + labels_filename)
-
     x_data_test = x_data[y_set == "test"]
     y_label_test = y_label[y_set == "test"]
+
+    print(f"Test set label distributions {collections.Counter(y_label_test)}")
 
     test_data = AudioDataset(
         (x_data_test, y_label_test), augment=False, max_len=False, from_audio=from_audio
@@ -348,7 +413,7 @@ def evaluate_finetuned_model(
         logger=wandb_logger,
     )
 
-    test_res = trainer.test(model=model, dataloaders=test_loader, ckpt_path=None)
+    test_res = trainer.test(model=model, dataloaders=test_loader, ckpt_path=ckpt_path)
 
     auc = test_res[0]["test_auc"]
 
@@ -362,6 +427,8 @@ def evaluate_model(cfg, seed):
         metrics=cfg.metrics,
         epochs=64,
         l2_strength=cfg.l2_strength,
+        batch_size=cfg.batch_size,
+        loss=cfg.loss,
     )
 
     if cfg.task == "physionet16":
@@ -407,7 +474,7 @@ def evaluate_model(cfg, seed):
         )
     else:
         return evaluate_finetuned_model(
-            pretrain=cfg.pretrain, head="linear", feat_dim=cfg.dim, **eval_args
+            pretrain=cfg.pretrain, head="linear", feat_dim=cfg.dim, **eval_args, freeze_encoder=cfg.freeze_encoder
         )
 
 
