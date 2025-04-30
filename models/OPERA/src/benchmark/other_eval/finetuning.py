@@ -11,6 +11,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
+from torchlibrosa.augmentation import SpecAugmentation
 from torch.utils.data import DataLoader
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -45,6 +46,11 @@ class AudioDataset(torch.utils.data.Dataset):
         from_npy=False,
         crop_mode="first",
         from_audio=False,
+        spec_augment=False,
+        time_drop_width=100,
+        time_stripes_num=2,
+        freq_drop_width=20,
+        freq_stripes_num=2,
     ):
         self.data = data[0]
         self.label = data[1]
@@ -53,6 +59,13 @@ class AudioDataset(torch.utils.data.Dataset):
         self.from_npy = from_npy
         self.crop_mode = crop_mode
         self.from_audio = from_audio
+        self.spec_augment = spec_augment
+        self.spec_augmenter = SpecAugmentation(
+            time_drop_width=time_drop_width,
+            time_stripes_num=time_stripes_num,
+            freq_drop_width=freq_drop_width,
+            freq_stripes_num=freq_stripes_num,
+        )
 
     def __len__(self):
         return len(self.data)
@@ -81,6 +94,20 @@ class AudioDataset(torch.utils.data.Dataset):
 
         x = torch.tensor(x, dtype=torch.float)
         label = torch.tensor(label, dtype=torch.long)
+
+        if self.spec_augment:
+            original_dim = x.ndim
+            if original_dim == 2:
+                x = x.unsqueeze(0).unsqueeze(0)  # (1, 1, F, T)
+            elif original_dim == 3:
+                x = x.unsqueeze(0)               # (1, C, F, T)
+            
+            x = self.spec_augmenter(x)           # requires 4 dim
+
+            if original_dim == 2:
+                x = x.squeeze(0).squeeze(0)     # (F, T)
+            elif original_dim == 3:
+                x = x.squeeze(0)                # (1, C, F, T)
 
         return x, label
 
@@ -854,6 +881,7 @@ def finetune_heart(
     feature_dir="feature/circor_eval/",
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
+    spec_augment=False,
 ):
     run_name = get_wandb_name(pretrain, f"{dataset_name}-{task}", head)
     wandb_logger = WandbLogger(
@@ -919,6 +947,9 @@ def finetune_heart(
             vit_base_patch16,
         )
 
+        time_drop_width = 100
+        freq_drop_width = 20
+
         if not os.path.exists(feature_dir + "fbank_audiomae.npy"):
             from src.util import get_split_signal_fbank_pad
 
@@ -967,6 +998,9 @@ def finetune_heart(
     elif pretrain == "clap":
         from src.benchmark.baseline.msclap import CLAP
 
+        time_drop_width = 64
+        freq_drop_width = 8
+
         audio_files = np.load(feature_dir + "sound_dir_loc.npy")
         x_data = np.array(audio_files)
         clap_model = CLAP(version="2022", use_cuda=True)
@@ -987,6 +1021,9 @@ def finetune_heart(
     elif pretrain == "clap2023":
         from src.benchmark.baseline.msclap import CLAP
 
+        time_drop_width = 64
+        freq_drop_width = 8
+
         audio_files = np.load(feature_dir + "sound_dir_loc.npy")
         x_data = np.array(audio_files)
         clap_model = CLAP(version="2023", use_cuda=True)
@@ -1005,6 +1042,8 @@ def finetune_heart(
         )
         from_audio = True
     elif pretrain == "hear":
+        time_drop_width = 0
+        freq_drop_width = 0
         if not os.path.exists(feature_dir + "fbank_hear.npy"):
             from src.util import get_split_signal_fbank_pad
 
@@ -1020,7 +1059,7 @@ def finetune_heart(
             np.save(feature_dir + "fbank_hear.npy", x_data)
 
         x_data = np.load(feature_dir + "fbank_hear.npy")
-        feat_dim=1024
+        feat_dim = 1024
         batch_size = 16
         configuration = ViTConfig(
             image_size=(192, 128),
@@ -1059,6 +1098,8 @@ def finetune_heart(
             task=task
         )
     else:
+        time_drop_width = 40
+        freq_drop_width = 8
         if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
             from src.util import get_split_signal_librosa
 
@@ -1132,6 +1173,9 @@ def finetune_heart(
             "task": task,
             "freeze_encoder": freeze_encoder,
             "loss": loss,
+            "spec_augment": spec_augment,
+            "time_drop_width": time_drop_width,
+            "freq_drop_width": freq_drop_width
         }
     )
 
@@ -1154,6 +1198,9 @@ def finetune_heart(
         augment=False,
         max_len=False,
         from_audio=from_audio,
+        spec_augment=spec_augment,
+        time_drop_width=time_drop_width,
+        freq_drop_width=freq_drop_width
     )
     test_data = AudioDataset(
         (x_data_test, y_label_test), augment=False, max_len=False, from_audio=from_audio
@@ -1312,6 +1359,7 @@ def main(cfg: DictConfig):
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
                     loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
                 task = cfg.task.split("_")[1]
@@ -1327,6 +1375,7 @@ def main(cfg: DictConfig):
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
                     loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
                 data_task_list = cfg.task.split("_")
@@ -1344,6 +1393,7 @@ def main(cfg: DictConfig):
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
                     loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
                 task = cfg.task.split("_")[1]
@@ -1359,6 +1409,7 @@ def main(cfg: DictConfig):
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
                     loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             elif cfg.task == "physionet16":
                 auc = finetune_heart(
@@ -1373,6 +1424,7 @@ def main(cfg: DictConfig):
                     seed=seed,
                     freeze_encoder=cfg.freeze_encoder,
                     loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             auc_scores.append(auc)
         print("=" * 48)
