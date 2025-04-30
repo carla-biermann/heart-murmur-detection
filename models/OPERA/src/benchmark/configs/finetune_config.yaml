@@ -35,3 +35,4 @@ mapgoogle: False
 avgprob: False
 freeze_encoder: none
 loss: unweighted
+spec_augment: False
