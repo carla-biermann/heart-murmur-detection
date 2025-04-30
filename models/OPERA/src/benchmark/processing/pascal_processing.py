@@ -16,6 +16,7 @@ from src.benchmark.baseline.extract_feature import (
 
 # Directories
 data_dir = "datasets/PASCAL/"
+OPERACT_HEART_CKPT_PATH = "cks/model/combined/circor_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-nopascal-epoch=99--valid_acc=0.93-valid_loss=0.3276.ckpt"
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -110,34 +111,52 @@ def preprocess_split(dataset):
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", labels)
 
+
 def extract_and_save_embeddings_baselines(
     feature="audiomae", fine_tuned=None, ckpt_path=None, seed=None
 ):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
 
-    if feature == "vggish": # no fine-tuning
+    if feature == "vggish":  # no fine-tuning
         vgg_features = extract_vgg_feature(sound_dir_loc)
         np.save(feature_dir + feature + "_feature.npy", np.array(vgg_features))
     elif feature == "clap":
         clap_features = extract_clap_feature(sound_dir_loc, ckpt_path=ckpt_path)
-        np.save(feature_dir + feature + suffix + "_feature.npy", np.array(clap_features))
+        np.save(
+            feature_dir + feature + suffix + "_feature.npy", np.array(clap_features)
+        )
     elif feature == "clap2023":
         clap2023_features = extract_clap_feature(sound_dir_loc, version="2023")
-        np.save(feature_dir + feature + suffix + "_feature.npy", np.array(clap2023_features))
+        np.save(
+            feature_dir + feature + suffix + "_feature.npy", np.array(clap2023_features)
+        )
     elif feature == "audiomae":
         audiomae_feature = extract_audioMAE_feature(sound_dir_loc, ckpt_path=ckpt_path)
-        np.save(feature_dir + feature + suffix + "_feature.npy", np.array(audiomae_feature))
-    elif feature == "hear": # no fine-tuning possible, not open-source
+        np.save(
+            feature_dir + feature + suffix + "_feature.npy", np.array(audiomae_feature)
+        )
+    elif feature == "hear":  # no fine-tuning possible, not open-source
         hear_feature = extract_HeAR_feature(sound_dir_loc)
         np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
+
 
 def extract_and_save_embeddings(
     feature="operaCE", input_sec=8, dim=1280, fine_tuned=None, ckpt_path=None, seed=None
 ):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+    if feature == "operaCT-heart":
+        ckpt_path = OPERACT_HEART_CKPT_PATH
+        pretrain = "operaCT"  # necessary as input to extract_opera_feature
+    else:
+        ckpt_path = None
+        pretrain = feature
     opera_features = extract_opera_feature(
-        sound_dir_loc, pretrain=feature, input_sec=input_sec, dim=dim, ckpt_path=ckpt_path,
+        sound_dir_loc,
+        pretrain=pretrain,
+        input_sec=input_sec,
+        dim=dim,
+        ckpt_path=ckpt_path,
     )
     feature += str(dim)
     suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
@@ -167,7 +186,7 @@ if __name__ == "__main__":
         preprocess_split(args.dataset)
 
     if args.ckpt_path:
-        seed = args.ckpt_path.split('/')[-1].split('_')[7][0] # get seed from filename
+        seed = args.ckpt_path.split("/")[-1].split("_")[7][0]  # get seed from filename
     else:
         seed = None
 
@@ -176,7 +195,7 @@ if __name__ == "__main__":
             args.pretrain, args.fine_tuned, args.ckpt_path, seed
         )
     else:
-        if args.pretrain == "operaCT":
+        if args.pretrain == "operaCT" or args.pretrain == "operaCT-heart":
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
             input_sec = args.min_len_cnn

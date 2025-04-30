@@ -16,6 +16,7 @@ from src.benchmark.baseline.extract_feature import (
 # Directories
 data_dir = "datasets/physionet.org/files/challenge-2016/1.0.0/"
 feature_dir = "feature/physionet16_eval/"
+OPERACT_HEART_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_zchsound_clean_zchsound_noisy/encoder-operaCT-nophysionet-epoch=159--valid_acc=0.95-valid_loss=0.2932.ckpt"
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -162,9 +163,15 @@ def extract_and_save_embeddings(
     from src.benchmark.model_util import extract_opera_feature
 
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
+    if feature == "operaCT-heart":
+        ckpt_path = OPERACT_HEART_CKPT_PATH
+        pretrain = "operaCT"  # necessary as input to extract_opera_feature
+    else:
+        ckpt_path = None
+        pretrain = feature
     opera_features = extract_opera_feature(
         sound_dir_loc,
-        pretrain=feature,
+        pretrain=pretrain,
         input_sec=input_sec,
         dim=dim,
         pad0=True,
@@ -196,7 +203,7 @@ if __name__ == "__main__":
             args.pretrain, args.fine_tuned, args.ckpt_path, args.seed
         )
     else:
-        if args.pretrain == "operaCT":
+        if args.pretrain == "operaCT" or args.pretrain == "operaCT-heart":
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
             input_sec = args.min_len_cnn
