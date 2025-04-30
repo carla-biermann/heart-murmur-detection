@@ -14,6 +14,8 @@ avgprob: False
 epochs: 64
 batch_size: 32
 head_only: False # only evaluating linear head on extracted features or full model?
+freeze_encoder: none
+loss: unweighted
 
 metrics: [
   "circor_weighted_murmur_acc",
