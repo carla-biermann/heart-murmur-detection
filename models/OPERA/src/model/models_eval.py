@@ -178,6 +178,12 @@ def initialize_metrics(classes, device, metrics, dataset, task):
         "weighted_F1": MulticlassF1Score(num_classes=classes, average="weighted").to(
             device
         ),
+        "macro_F1": MulticlassF1Score(num_classes=classes, average="macro").to(
+            device
+        ),
+        "macro_auroc": MulticlassAUROC(num_classes=classes, average="macro").to(
+            device
+        ),
         "unweighted_accuracy": MulticlassAccuracy(num_classes=classes).to(device),
         "unweighted_recall": MulticlassRecall(num_classes=classes, average=None).to(
             device
@@ -248,6 +254,7 @@ class AudioClassifier(pl.LightningModule):
         task=None,
     ):
         super().__init__()
+        #self.save_hyperparameters()
         self.net = net
         self.freeze_encoder = freeze_encoder
         # self.l2_strength = l2_strength
@@ -491,6 +498,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         task=None,
     ):
         super().__init__()
+        #self.save_hyperparameters()
         self.net = net
         self.freeze_encoder = freeze_encoder
 
@@ -703,6 +711,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         task=None,
     ):
         super().__init__()
+        #self.save_hyperparameters()
         self.net = net
         self.freeze_encoder = freeze_encoder
         # self.l2_strength = l2_strength
@@ -1027,6 +1036,7 @@ class AudioClassifierHeAR(pl.LightningModule):
         task=None,
     ):
         super().__init__()
+        #self.save_hyperparameters()
         self.net = net
         self.freeze_encoder = freeze_encoder
 
