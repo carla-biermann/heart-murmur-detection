@@ -112,6 +112,11 @@ def preprocess_split():
         _x_train, _y_train, test_size=0.2, random_state=1337, stratify=_y_train
     )
 
+    # Split train set for in-domain pretraining
+    x_train_pretrain, x_train_head = train_test_split(
+        x_train, test_size=0.5, random_state=42
+    )
+
     print("Class distribution:")
     print(f"Train: {collections.Counter(y_train)}")
     print(f"Val: {collections.Counter(y_val)}")
@@ -122,16 +127,24 @@ def preprocess_split():
 
     # Create train/val/test splits for audio files
     audio_splits = []
+    audio_splits_pretrain = []
     for i, file in enumerate(sound_files):
         if file in x_train:
             audio_splits.append("train")
+            if file in x_train_pretrain:
+                audio_splits_pretrain.append("train_pretrain")
+            if file in x_train_head:
+                audio_splits_pretrain.append("train")
         elif file in x_val:
             audio_splits.append("val")
+            audio_splits_pretrain.append("val")
         else:
             audio_splits.append("test")
+            audio_splits_pretrain.append("test")
 
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", labels)
+    np.save(feature_dir + "train_test_pretrain_split.npy", audio_splits_pretrain)
 
 
 def extract_and_save_embeddings_baselines(

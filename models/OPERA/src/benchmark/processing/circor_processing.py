@@ -54,6 +54,7 @@ chars_to_int = {
 }
 
 OPERACT_HEART_CKPT_PATH = "cks/model/combined/pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-nocircor-epoch=189--valid_acc=0.97-valid_loss=0.2715.ckpt"
+OPERACT_HEART_INDOMAIN_CKPT_PATH = "cks/model/combined/circor/encoder-operaCT-circor-indomain-epoch=209--valid_acc=0.99-valid_loss=0.0397.ckpt"
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -134,6 +135,22 @@ def read_data():
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "murmurs.npy", murmurs)
     np.save(feature_dir + "outcomes.npy", outcomes)
+
+    # Split train into train_pretrain and train_head
+    train_indices = [i for i, split in enumerate(audio_splits) if split == "train"]
+    train_files = [sound_files[i] for i in train_indices]
+    train_pretrain, train_head = train_test_split(
+        train_files, test_size=0.5, random_state=42
+    )
+
+    # Update audio_splits with train_pretrain and train_head
+    for i, file in enumerate(sound_files):
+        if file in train_pretrain:
+            audio_splits[i] = "train_pretrain"
+        elif file in train_head:
+            audio_splits[i] = "train"
+
+    np.save(feature_dir + "train_test_pretrain_split.npy", audio_splits)
 
 
 def get_labels_from_csv():
@@ -225,6 +242,9 @@ def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
     if feature == "operaCT-heart":
         ckpt_path = OPERACT_HEART_CKPT_PATH
         pretrain = "operaCT"  # necessary as input to extract_opera_feature
+    elif feature == "operaCT-heart-indomain":
+        ckpt_path = OPERACT_HEART_INDOMAIN_CKPT_PATH
+        pretrain = "operaCT"
     else:
         ckpt_path = None
         pretrain = feature
@@ -268,7 +288,11 @@ if __name__ == "__main__":
     if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
         extract_and_save_embeddings_baselines(args.pretrain)
     else:
-        if args.pretrain == "operaCT" or args.pretrain == "operaCT-heart":
+        if (
+            args.pretrain == "operaCT"
+            or args.pretrain == "operaCT-heart"
+            or args.pretrain == "operaCT-heart-indomain"
+        ):
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
             input_sec = args.min_len_cnn

@@ -9,11 +9,18 @@ from src.util import get_entire_signal_librosa
 # for pretraining
 
 
-def preprocess_spectrogram_SSL(feature_dir: str, input_sec=8):
+def preprocess_spectrogram_SSL(feature_dir: str, input_sec=8, in_domain=False):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
-    y_set = np.load(feature_dir + "train_test_split.npy")
-
-    sound_dir_loc_train_val = sound_dir_loc[(y_set == "train") | (y_set == "val")]
+    spec_dir = "entire_spec_npy"
+    spec_filenames_file = "entire_spec"
+    if not in_domain:
+        y_set = np.load(feature_dir + "train_test_split.npy")
+        sound_dir_loc_train_val = sound_dir_loc[(y_set == "train") | (y_set == "val")]
+    else:
+        y_set = np.load(feature_dir + "train_test_pretrain_split.npy")
+        sound_dir_loc_train_val = sound_dir_loc[(y_set == "train_pretrain")]
+        spec_dir += "_in_domain"
+        spec_filenames_file += "_in_domain"
 
     invalid_data = 0
 
@@ -31,13 +38,13 @@ def preprocess_spectrogram_SSL(feature_dir: str, input_sec=8):
             invalid_data += 1
             continue
 
-        os.makedirs(feature_dir + "entire_spec_npy", exist_ok=True)
+        os.makedirs(feature_dir + spec_dir, exist_ok=True)
 
         # saving to individual npy files
-        np.save(feature_dir + "entire_spec_npy/" + file_id + ".npy", data)
-        filename_list.append(feature_dir + "entire_spec_npy/" + file_id)
+        np.save(feature_dir + spec_dir + "/" + file_id + ".npy", data)
+        filename_list.append(feature_dir + spec_dir + "/" + file_id)
 
-    np.save(feature_dir + "entire_spec_filenames.npy", filename_list)
+    np.save(feature_dir + spec_filenames_file + "_filenames.npy", filename_list)
     print(
         f"finished preprocessing {feature_dir.split('/')[1].removesuffix('_eval')}: valid data",
         len(filename_list),
@@ -58,6 +65,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--feature_dir", type=str, default="feature/circor_eval/")
     parser.add_argument("--input_sec", type=int, default=8)
+    parser.add_argument("--in_domain", type=bool, default=False)
     args = parser.parse_args()
 
-    preprocess_spectrogram_SSL(feature_dir=args.feature_dir, input_sec=args.input_sec)
+    preprocess_spectrogram_SSL(
+        feature_dir=args.feature_dir, input_sec=args.input_sec, in_domain=args.in_domain
+    )
