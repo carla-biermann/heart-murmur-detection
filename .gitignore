@@ -24,6 +24,9 @@ models/OPERA/feature/pascal_B_eval/entire_spec_npy/*
 models/OPERA/feature/physionet16_eval/entire_spec_npy/*
 models/OPERA/feature/zchsound_clean_eval/entire_spec_npy/*
 models/OPERA/feature/zchsound_noisy_eval/entire_spec_npy/*
+models/OPERA/feature/circor_eval/entire_spec_npy_in_domain/*
+models/OPERA/feature/physionet16_eval/entire_spec_npy_in_domain/*
+
 
 # Scripts in progress
 models/OPERA/scripts/*
