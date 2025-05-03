@@ -20,6 +20,7 @@ class FeatureDataset(torch.utils.data.Dataset):
     def __init__(self, data):
         self.data = data[0]
         self.label = data[1]
+        self.annotations = data[2] if len(data) > 2 else None
 
     def __len__(self):
         return len(self.data)
@@ -31,7 +32,12 @@ class FeatureDataset(torch.utils.data.Dataset):
         x = torch.tensor(x, dtype=torch.float)
         label = torch.tensor(label, dtype=torch.long)
 
-        return x, label
+        if self.annotations is not None:
+            annotation = self.annotations[idx]
+            annotation = torch.tensor(annotation, dtype=torch.long)
+            return x, label, annotation
+        else:
+            return x, label
 
 
 class FeatureDatasetR(torch.utils.data.Dataset):
@@ -1377,6 +1383,18 @@ def linear_evaluation_heart(
     test_data = FeatureDataset((x_data_test, y_label_test))
     val_data = FeatureDataset((x_data_vad, y_label_vad))
 
+    if dataset_name == "physionet16":
+        annotations = np.load(feature_dir + "annotations.npy").astype(np.int32)
+        annotations = annotations[valid_indices]
+        annotations_train = annotations[y_set == "train"]
+        annotations_vad = annotations[y_set == "val"]
+        annotations_test = annotations[y_set == "test"]
+
+        train_data = FeatureDataset((x_data_train, y_label_train, annotations_train))
+        test_data = FeatureDataset((x_data_test, y_label_test, annotations_test))
+        val_data = FeatureDataset((x_data_vad, y_label_vad, annotations_vad))
+
+
     train_loader = DataLoader(
         train_data, batch_size=batch_size, num_workers=1, shuffle=True
     )
@@ -1404,6 +1422,13 @@ def linear_evaluation_heart(
             "avg_unweighted_precision",
             "unweighted_specificity",
             "avg_unweighted_specificity",
+            "circor_weighted_murmur_acc",
+            "unweighted_accuracy",
+            "circor_weighted_outcome_acc",
+            "circor_outcome_cost",
+            "macro_F1",
+            "macro_auroc",
+            "physionet16_score",
         ],
         dataset=dataset_name,
         task=task,

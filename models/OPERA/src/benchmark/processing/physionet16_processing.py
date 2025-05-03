@@ -1,5 +1,6 @@
 import argparse
 import collections
+import csv
 import glob as gb
 import json
 import os
@@ -26,22 +27,45 @@ if not os.path.exists(data_dir):
     )
 
 
-def get_files_and_labels(dir):
-    files = gb.glob(os.path.join(dir, "*.wav"))
-    print(f"{dir}: {len(files)} files")
+def get_files_and_labels(audio_dir, annotations_dir):
+    files = gb.glob(os.path.join(audio_dir, "*.wav"))
+    print(f"{audio_dir}: {len(files)} files")
+
+    ann_file = os.path.join(annotations_dir, "REFERENCE_withSQI.csv")
 
     label_to_int = {"normal": 0, "abnormal": 1}
 
+    quality_dict = {}
+
+    # Load the annotations file into a dict
+    with open(ann_file, "r") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            # 1st col: file name, 2nd col: label (ignore), 3rd col: 
+            if len(row) >= 3:
+                basename = row[0].strip()
+                quality = row[2].strip() # 0 for unsure, 1 for good quality
+                quality_dict[basename] = quality
+
     labels = []
+    annotations = []
     # Read label from .hea file
     for file in files:
-        hea_file = file.replace("wav", "hea")
+        hea_file = file.replace(".wav", ".hea")
         with open(hea_file, "r") as f:
             lines = f.readlines()
 
         label = lines[-1].strip().lstrip("#").strip().lower()
         labels.append(label_to_int[label])
-    return files, labels
+
+        basename = os.path.basename(file).split(".")[0]
+        if basename in quality_dict:
+            annotations.append(quality_dict[basename])
+        else:
+            print(f"[Warning] No annotation found for {basename}, defaulting to 0 (unsure)")
+            annotations.append(0)
+    
+    return files, labels, annotations
 
 
 def read_data():
@@ -54,7 +78,6 @@ def read_data():
         "training-e",
         "training-f",
     ]
-    # val_dir = "validation"
 
     label_to_int = {"normal": 0, "abnormal": 1}
     int_to_label = {0: "normal", 1: "abnormal"}
@@ -68,35 +91,27 @@ def read_data():
     # Collect sound files and labels
     sound_files = []
     labels = []
-    # audio_splits = []
+    annotations = []
 
     for dir in training_dirs:
         audio_dir = os.path.join(data_dir, dir)
-        files, y = get_files_and_labels(audio_dir)
+        annotations_dir = os.path.join(os.path.join(data_dir, "annotations/updated"), dir)
+        files, y, ann = get_files_and_labels(audio_dir, annotations_dir)
 
         sound_files.extend(files)
         labels.extend(y)
-        # audio_splits.extend(["train"] * len(files))
-
-    # Validation dataset
-    # audio_dir = os.path.join(data_dir, val_dir)
-    # files, labels = get_files_and_labels(audio_dir)
-
-    # sound_files.extend(files)
-    # labels.extend(labels)
-    # datasets.extend(["val"] * len(files))
-    # audio_splits.extend(["val"] * len(files)
+        annotations.extend(ann)
 
     # Convert to arrays for safety
     sound_files = np.array(sound_files)
     labels = np.array(labels)
-    # audio_splits = np.array(audio_splits)
+    annotations = np.array(annotations)
 
-    return sound_files, labels
+    return sound_files, labels, annotations
 
 
 def preprocess_split_independent():
-    sound_files, labels = read_data()
+    sound_files, labels, annotations = read_data()
 
     # Save .wav file locations
     np.save(feature_dir + "sound_dir_loc.npy", sound_files)
@@ -178,12 +193,13 @@ def preprocess_split_independent():
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", labels)
     np.save(feature_dir + "train_test_pretrain_split.npy", audio_splits_pretrain)
+    np.save(feature_dir + "annotations.npy", annotations)
 
 
 def preprocess_split():
     """Split dataset into train, val, and test sets, and save splits."""
 
-    sound_files, labels = read_data()
+    sound_files, labels, annotations = read_data()
 
     # Verify initial distribution
     print("Initial Class Distribution:", dict(collections.Counter(labels)))
@@ -230,6 +246,7 @@ def preprocess_split():
     np.save(feature_dir + "train_test_split.npy", audio_splits)
     np.save(feature_dir + "labels.npy", labels)
     np.save(feature_dir + "train_test_pretrain_split.npy", audio_splits_pretrain)
+    np.save(feature_dir + "annotations.npy", annotations)
 
 
 def extract_and_save_embeddings_baselines(
