@@ -905,7 +905,9 @@ def finetune_heart(
         "circor_weighted_murmur_acc",
         "circor_weighted_outcome_acc",
         "unweighted_accuracy",
-        "circor_outcome_cost"
+        "circor_outcome_cost",
+        "macro_F1",
+        "macro_auroc",
     ]
 
     print("*" * 48)

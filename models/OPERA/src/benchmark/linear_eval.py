@@ -14,9 +14,14 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.model.models_eval import LinearHead, LinearHeadR
-from src.util import downsample_balanced_dataset, train_test_split_from_list, get_weights_tensor
+from src.util import (
+    downsample_balanced_dataset,
+    train_test_split_from_list,
+    get_weights_tensor,
+)
 import hydra
 from omegaconf import DictConfig, OmegaConf
+
 
 class FeatureDataset(torch.utils.data.Dataset):
     def __init__(self, data):
@@ -1372,7 +1377,13 @@ def linear_evaluation_heart(
         head,
     )
 
-    y_set = np.load(feature_dir + "train_test_split.npy")
+    splits_filename = (
+        "train_test_pretrain_split.npy"
+        if "indomain" in use_feature
+        else "train_test_split.npy"
+    )
+
+    y_set = np.load(feature_dir + splits_filename)
     y_label = np.load(feature_dir + labels_filename)
     x_data = np.load(feature_dir + use_feature + "_feature.npy").squeeze()
 
@@ -1381,7 +1392,7 @@ def linear_evaluation_heart(
     x_data = x_data[valid_indices]
     y_label = y_label[valid_indices].astype(np.int32)
     y_set = y_set[valid_indices]
-    
+
     print(f"Label distribution: {collections.Counter(y_label)}")
 
     feat_dim = x_data.shape[1]

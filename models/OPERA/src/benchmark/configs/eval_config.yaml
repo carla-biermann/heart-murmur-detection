@@ -32,5 +32,7 @@ metrics: [
   "unweighted_specificity",
   "avg_unweighted_specificity",
   "unweighted_accuracy",
-  "circor_outcome_cost"
+  "circor_outcome_cost",
+  "macro_F1",
+  "macro_auroc",
 ]
