@@ -19,6 +19,71 @@ from torchmetrics.classification import (
 )
 import wandb
 
+def compute_physionet16_score(predicted_tensor, y_tensor, annotations):
+    """
+    Compute PhysioNet2016 score.
+
+    Args:
+        predicted_tensor (Tensor): predicted class labels (shape: [N])
+        y_tensor (Tensor): true class labels (shape: [N])
+        annotations (Tensor): 1 = clean, 0 = noisy (shape: [N])
+
+    Returns:
+        float: weighted accuracy
+    """
+
+    NORMAL = 0
+    ABNORMAL = 1
+
+    # Boolean masks for each condition
+    normal_mask = y_tensor == NORMAL
+    abnormal_mask = y_tensor == ABNORMAL
+    clean_mask = annotations == 1
+    noisy_mask = annotations == 0
+
+    normal_clean = normal_mask & clean_mask
+    normal_noisy = normal_mask & noisy_mask
+    abnormal_clean = abnormal_mask & clean_mask
+    abnormal_noisy = abnormal_mask & noisy_mask
+
+    Nn1 = (predicted_tensor[normal_clean] == NORMAL).sum()
+    Nn2 = (predicted_tensor[normal_noisy] == NORMAL).sum()
+    An1 = (predicted_tensor[abnormal_clean] == NORMAL).sum()
+    An2 = (predicted_tensor[abnormal_noisy] == NORMAL).sum()
+    Na1 = (predicted_tensor[normal_clean] == ABNORMAL).sum()
+    Na2 = (predicted_tensor[normal_noisy] == ABNORMAL).sum()
+    Aa1 = (predicted_tensor[abnormal_clean] == ABNORMAL).sum()
+    Aa2 = (predicted_tensor[abnormal_noisy] == ABNORMAL).sum()
+
+    # Total counts per subgroup
+    total_normal_clean = normal_clean.sum()
+    total_normal_noisy = normal_noisy.sum()
+    total_abnormal_clean = abnormal_clean.sum()
+    total_abnormal_noisy = abnormal_noisy.sum()
+
+    total_normal = total_normal_clean + total_normal_noisy
+    total_abnormal = total_abnormal_clean + total_abnormal_noisy
+
+    # Weights (avoid divide-by-zero)
+    wa1 = total_abnormal_clean.float() / total_abnormal.float().clamp(min=1)
+    wa2 = total_abnormal_noisy.float() / total_abnormal.float().clamp(min=1)
+    wn1 = total_normal_clean.float() / total_normal.float().clamp(min=1)
+    wn2 = total_normal_noisy.float() / total_normal.float().clamp(min=1)
+
+    # Sensitivity (SE) and Specificity (SP), with clamp to prevent division by zero
+    se_denom1 = (Aa1 + An1).float().clamp(min=1)
+    se_denom2 = (Aa2 + An2).float().clamp(min=1)
+    sp_denom1 = (Nn1 + Na1).float().clamp(min=1)
+    sp_denom2 = (Nn2 + Na2).float().clamp(min=1)
+
+    se = wa1 * (Aa1.float() / (se_denom1)) + wa2 * (Aa2.float() / (se_denom2))
+    sp = wn1 * (Nn1.float() / (sp_denom1)) + wn2 * (Nn2.float() / (sp_denom2))
+
+    # Final weighted score
+    weighted_score = (se + sp) / 2.0
+    
+    return weighted_score.float()
+
 def circor_weighted_murmur_acc(predicted_tensor, y_tensor):
     """
     Compute the weighted murmur accuracy score.
@@ -210,6 +275,8 @@ def initialize_metrics(classes, device, metrics, dataset, task):
     elif dataset == "circor" and task == "outcomes":
         available_metrics["circor_weighted_outcome_acc"] = circor_weighted_outcome_acc
         available_metrics["circor_outcome_cost"] = compute_cost_outcomes
+    if dataset == "physionet16":
+        available_metrics["physionet16_score"] = compute_physionet16_score
     selected_metrics = {}
     for metric in metrics:
         if metric in available_metrics:
@@ -1294,7 +1361,11 @@ class LinearHead(pl.LightningModule):
         return self.head(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x) + 1e-10
         # print(y_hat, y)
@@ -1318,12 +1389,16 @@ class LinearHead(pl.LightningModule):
         # print("train_acc", acc)f
 
         # Compute and log selected metrics
-        self.log_metrics("train", probabilities, predicted, y)
+        self.log_metrics("train", probabilities, predicted, y, annotations)
 
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -1340,12 +1415,23 @@ class LinearHead(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        self.validation_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.validation_step_outputs.append(output)
+
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -1359,21 +1445,32 @@ class LinearHead(pl.LightningModule):
 
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        self.test_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.test_step_outputs.append(output)
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(probs_tensor, y_tensor)
@@ -1382,7 +1479,7 @@ class LinearHead(pl.LightningModule):
         self.log("valid_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.validation_step_outputs.clear()
 
@@ -1391,12 +1488,16 @@ class LinearHead(pl.LightningModule):
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(probs_tensor, y_tensor)
@@ -1405,19 +1506,21 @@ class LinearHead(pl.LightningModule):
         self.log("test_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
-
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
         self.test_step_outputs.clear()
         return auc
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor, annotations):
         for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
-            )
+            if "auroc" in metric_name:
+                metric_value = metric(probs_tensor, y_tensor)
+            elif "physionet16" in metric_name:
+                metric_value = metric(predicted_tensor, y_tensor, annotations)
+            else:
+                metric_value = metric(predicted_tensor, y_tensor)
             if metric_value.numel() > 1:
                 label_dict = get_int_to_label_mapping(self.dataset, self.task)
                 for i, val in enumerate(metric_value):
