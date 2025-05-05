@@ -64,22 +64,34 @@ def compute_physionet16_score(predicted_tensor, y_tensor, annotations):
     total_normal = total_normal_clean + total_normal_noisy
     total_abnormal = total_abnormal_clean + total_abnormal_noisy
 
-    # Weights (avoid divide-by-zero)
-    wa1 = total_abnormal_clean.float() / total_abnormal.float().clamp(min=1)
-    wa2 = total_abnormal_noisy.float() / total_abnormal.float().clamp(min=1)
-    wn1 = total_normal_clean.float() / total_normal.float().clamp(min=1)
-    wn2 = total_normal_noisy.float() / total_normal.float().clamp(min=1)
+    # Avoid division by zero for total weights
+    wn1 = total_normal_clean.float() / total_normal.float() if total_normal > 0 else 0.0
+    wn2 = total_normal_noisy.float() / total_normal.float() if total_normal > 0 else 0.0
+    wa1 = total_abnormal_clean.float() / total_abnormal.float() if total_abnormal > 0 else 0.0
+    wa2 = total_abnormal_noisy.float() / total_abnormal.float() if total_abnormal > 0 else 0.0
 
-    # Sensitivity (SE) and Specificity (SP), with clamp to prevent division by zero
-    se_denom1 = (Aa1 + An1).float().clamp(min=1)
-    se_denom2 = (Aa2 + An2).float().clamp(min=1)
-    sp_denom1 = (Nn1 + Na1).float().clamp(min=1)
-    sp_denom2 = (Nn2 + Na2).float().clamp(min=1)
+    # Sensitivity and specificity for each subgroup (only if denom > 0)
+    se_parts = []
+    sp_parts = []
 
-    se = wa1 * (Aa1.float() / (se_denom1)) + wa2 * (Aa2.float() / (se_denom2))
-    sp = wn1 * (Nn1.float() / (sp_denom1)) + wn2 * (Nn2.float() / (sp_denom2))
+    se_denom1 = (Aa1 + An1).item()
+    se_denom2 = (Aa2 + An2).item()
+    sp_denom1 = (Nn1 + Na1).item()
+    sp_denom2 = (Nn2 + Na2).item()
+
+    if se_denom1 > 0:
+        se_parts.append(wa1 * (Aa1.float() / se_denom1))
+    if se_denom2 > 0:
+        se_parts.append(wa2 * (Aa2.float() / se_denom2))
+    if sp_denom1 > 0:
+        sp_parts.append(wn1 * (Nn1.float() / sp_denom1))
+    if sp_denom2 > 0:
+        sp_parts.append(wn2 * (Nn2.float() / sp_denom2))
 
     # Final weighted score
+    se = sum(se_parts) if se_parts else torch.tensor(0.0)
+    sp = sum(sp_parts) if sp_parts else torch.tensor(0.0)
+
     weighted_score = (se + sp) / 2.0
     
     return weighted_score.float()
@@ -399,13 +411,21 @@ class AudioClassifier(pl.LightningModule):
         return self.head(x)
 
     def predict_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
         y_hat = self(x)
         probabilities = F.softmax(y_hat, dim=1)
         return probabilities
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x) + 1e-10
         # print(y_hat, y)
@@ -437,12 +457,16 @@ class AudioClassifier(pl.LightningModule):
         self.log("train_acc", acc)
 
         # Compute and log selected metrics
-        self.log_metrics("train", probabilities, predicted, y)
+        self.log_metrics("train", probabilities, predicted, y, annotations)
 
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -459,12 +483,22 @@ class AudioClassifier(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        self.validation_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.validation_step_outputs.append(output)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -478,21 +512,31 @@ class AudioClassifier(pl.LightningModule):
 
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        self.test_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.test_step_outputs.append(output)
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -501,7 +545,7 @@ class AudioClassifier(pl.LightningModule):
         self.log("valid_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.validation_step_outputs.clear()
 
@@ -510,12 +554,16 @@ class AudioClassifier(pl.LightningModule):
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -524,7 +572,7 @@ class AudioClassifier(pl.LightningModule):
         self.log("test_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.test_step_outputs.clear()
         
@@ -533,11 +581,14 @@ class AudioClassifier(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor, annotations):
         for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
-            )
+            if "auroc" in metric_name:
+                metric_value = metric(probs_tensor, y_tensor)
+            elif "physionet16" in metric_name:
+                metric_value = metric(predicted_tensor, y_tensor, annotations)
+            else:
+                metric_value = metric(predicted_tensor, y_tensor)
             if metric_value.numel() > 1:
                 label_dict = get_int_to_label_mapping(self.dataset, self.task)
                 for i, val in enumerate(metric_value):
@@ -619,7 +670,11 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         return self.head(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x) + 1e-10
         # print(y_hat, y)
@@ -651,12 +706,16 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.log("train_acc", acc)
 
         # Compute and log selected metrics
-        self.log_metrics("train", probabilities, predicted, y)
+        self.log_metrics("train", probabilities, predicted, y, annotations)
 
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -673,12 +732,22 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        self.validation_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.validation_step_outputs.append(output)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -692,21 +761,31 @@ class AudioClassifierAudioMAE(pl.LightningModule):
 
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        self.test_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.test_step_outputs.append(output)
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -715,7 +794,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.log("valid_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.validation_step_outputs.clear()
 
@@ -724,12 +803,16 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -738,7 +821,7 @@ class AudioClassifierAudioMAE(pl.LightningModule):
         self.log("test_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.test_step_outputs.clear()
         return auc
@@ -746,11 +829,14 @@ class AudioClassifierAudioMAE(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor, annotations):
         for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
-            )
+            if "auroc" in metric_name:
+                metric_value = metric(probs_tensor, y_tensor)
+            elif "physionet16" in metric_name:
+                metric_value = metric(predicted_tensor, y_tensor, annotations)
+            else:
+                metric_value = metric(predicted_tensor, y_tensor)
             if metric_value.numel() > 1:
                 label_dict = get_int_to_label_mapping(self.dataset, self.task)
                 for i, val in enumerate(metric_value):
@@ -943,7 +1029,11 @@ class AudioClassifierCLAP(pl.LightningModule):
         return self.head(audio_embed)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x) + 1e-10
         # print(y_hat, y)
@@ -976,12 +1066,16 @@ class AudioClassifierCLAP(pl.LightningModule):
         self.log("train_acc", acc)
 
         # Compute and log selected metrics
-        self.log_metrics("train", probabilities, predicted, y)
+        self.log_metrics("train", probabilities, predicted, y, annotations)
 
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -998,12 +1092,22 @@ class AudioClassifierCLAP(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        self.validation_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.validation_step_outputs.append(output)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -1017,21 +1121,31 @@ class AudioClassifierCLAP(pl.LightningModule):
 
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        self.test_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.test_step_outputs.append(output)
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -1040,7 +1154,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         self.log("valid_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.validation_step_outputs.clear()
 
@@ -1049,12 +1163,16 @@ class AudioClassifierCLAP(pl.LightningModule):
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -1063,7 +1181,7 @@ class AudioClassifierCLAP(pl.LightningModule):
         self.log("test_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.test_step_outputs.clear()
         return auc
@@ -1071,11 +1189,14 @@ class AudioClassifierCLAP(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor, annotations):
         for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
-            )
+            if "auroc" in metric_name:
+                metric_value = metric(probs_tensor, y_tensor)
+            elif "physionet16" in metric_name:
+                metric_value = metric(predicted_tensor, y_tensor, annotations)
+            else:
+                metric_value = metric(predicted_tensor, y_tensor)
             if metric_value.numel() > 1:
                 label_dict = get_int_to_label_mapping(self.dataset, self.task)
                 for i, val in enumerate(metric_value):
@@ -1163,7 +1284,11 @@ class AudioClassifierHeAR(pl.LightningModule):
         return self.head(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x) + 1e-10
         # print(y_hat, y)
@@ -1194,12 +1319,16 @@ class AudioClassifierHeAR(pl.LightningModule):
         self.log("train_acc", acc)
 
         # Compute and log selected metrics
-        self.log_metrics("train", probabilities, predicted, y)
+        self.log_metrics("train", probabilities, predicted, y, annotations)
 
         return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -1215,12 +1344,22 @@ class AudioClassifierHeAR(pl.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_acc", acc)
 
-        self.validation_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.validation_step_outputs.append(output)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 3:
+            x, y, annotations = batch
+        else:
+            x, y = batch
+            annotations = None
 
         y_hat = self(x)
 
@@ -1233,21 +1372,31 @@ class AudioClassifierHeAR(pl.LightningModule):
 
         self.log("test_loss", loss)
         self.log("test_acc", acc)
-        self.test_step_outputs.append(
-            (y.cpu().numpy(), predicted.cpu().numpy(), probabilities.cpu().numpy())
+        output = (
+            y.cpu().numpy(),
+            predicted.cpu().numpy(),
+            probabilities.cpu().numpy(),
         )
+        if annotations is not None:
+            output += (annotations.cpu().numpy(),)
+
+        self.test_step_outputs.append(output)
 
     def on_validation_epoch_end(self):
         all_outputs = self.validation_step_outputs
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -1256,7 +1405,7 @@ class AudioClassifierHeAR(pl.LightningModule):
         self.log("valid_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("val", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.validation_step_outputs.clear()
 
@@ -1265,12 +1414,16 @@ class AudioClassifierHeAR(pl.LightningModule):
         y = np.concatenate([output[0] for output in all_outputs])
         predicted = np.concatenate([output[1] for output in all_outputs])
         probs = np.concatenate([output[2] for output in all_outputs])
+        annotations = (
+            np.concatenate([output[3] for output in all_outputs]) if len(all_outputs[0]) > 3 else None
+        )
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(torch.from_numpy(probs), torch.from_numpy(y))
@@ -1279,7 +1432,7 @@ class AudioClassifierHeAR(pl.LightningModule):
         self.log("test_auc", auc)
 
         # Compute and log selected metrics
-        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor)
+        self.log_metrics("test", probs_tensor, predicted_tensor, y_tensor, annotations_tensor)
 
         self.test_step_outputs.clear()
         return auc
@@ -1287,11 +1440,14 @@ class AudioClassifierHeAR(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor):
+    def log_metrics(self, split, probs_tensor, predicted_tensor, y_tensor, annotations):
         for metric_name, metric in self.metrics.items():
-            metric_value = metric(
-                probs_tensor if "auroc" in metric_name else predicted_tensor, y_tensor
-            )
+            if "auroc" in metric_name:
+                metric_value = metric(probs_tensor, y_tensor)
+            elif "physionet16" in metric_name:
+                metric_value = metric(predicted_tensor, y_tensor, annotations)
+            else:
+                metric_value = metric(predicted_tensor, y_tensor)
             if metric_value.numel() > 1:
                 label_dict = get_int_to_label_mapping(self.dataset, self.task)
                 for i, val in enumerate(metric_value):
@@ -1470,7 +1626,7 @@ class LinearHead(pl.LightningModule):
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
-        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations else None
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(probs_tensor, y_tensor)
@@ -1497,7 +1653,7 @@ class LinearHead(pl.LightningModule):
         y_tensor = torch.from_numpy(y).to(device)
         predicted_tensor = torch.from_numpy(predicted).to(device)
         probs_tensor = torch.from_numpy(probs).to(device)
-        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations else None
+        annotations_tensor = torch.from_numpy(annotations).to(device) if annotations is not None else None
 
         auroc = AUROC(task="multiclass", num_classes=self.classes)
         auc = auroc(probs_tensor, y_tensor)
