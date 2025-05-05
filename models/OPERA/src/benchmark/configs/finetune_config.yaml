@@ -34,5 +34,5 @@ LOOCV: False
 mapgoogle: False
 avgprob: False
 freeze_encoder: none
-loss: unweighted
+loss: weighted
 spec_augment: False
