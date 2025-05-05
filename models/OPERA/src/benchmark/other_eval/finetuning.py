@@ -54,6 +54,7 @@ class AudioDataset(torch.utils.data.Dataset):
     ):
         self.data = data[0]
         self.label = data[1]
+        self.annotations = data[2] if len(data) > 2 else None
         self.max_len = max_len
         self.augment = augment
         self.from_npy = from_npy
@@ -80,7 +81,12 @@ class AudioDataset(torch.utils.data.Dataset):
         label = self.label[idx]
 
         if self.from_audio:
-            return x, label
+            if self.annotations is not None:
+                annotation = self.annotations[idx]
+                annotation = torch.tensor(annotation, dtype=torch.long)
+                return x, label, annotation
+            else:
+                return x, label
 
         if self.max_len:
             if self.crop_mode == "random":
@@ -109,7 +115,12 @@ class AudioDataset(torch.utils.data.Dataset):
             elif original_dim == 3:
                 x = x.squeeze(0)                # (1, C, F, T)
 
-        return x, label
+        if self.annotations is not None:
+            annotation = self.annotations[idx]
+            annotation = torch.tensor(annotation, dtype=torch.long)
+            return x, label, annotation
+        else:
+            return x, label
 
 
 class DecayLearningRate(pl.Callback):
@@ -908,6 +919,7 @@ def finetune_heart(
         "circor_outcome_cost",
         "macro_F1",
         "macro_auroc",
+        "physionet16_score",
     ]
 
     print("*" * 48)
@@ -1210,6 +1222,29 @@ def finetune_heart(
     val_data = AudioDataset(
         (x_data_vad, y_label_vad), augment=False, max_len=False, from_audio=from_audio
     )
+
+    if dataset_name == "physionet16":
+        annotations = np.load(feature_dir + "annotations.npy").astype(np.int32)
+        annotations = annotations[valid_indices]
+        annotations_train = annotations[y_set == "train"]
+        annotations_vad = annotations[y_set == "val"]
+        annotations_test = annotations[y_set == "test"]
+
+        train_data = AudioDataset(
+            (x_data_train, y_label_train, annotations_train),
+            augment=False,
+            max_len=False,
+            from_audio=from_audio,
+            spec_augment=spec_augment,
+            time_drop_width=time_drop_width,
+            freq_drop_width=freq_drop_width
+        )
+        test_data = AudioDataset(
+            (x_data_test, y_label_test, annotations_test), augment=False, max_len=False, from_audio=from_audio
+        )
+        val_data = AudioDataset(
+            (x_data_vad, y_label_vad, annotations_vad), augment=False, max_len=False, from_audio=from_audio
+        )
 
     train_loader = DataLoader(
         train_data, batch_size=batch_size, num_workers=2, shuffle=True
