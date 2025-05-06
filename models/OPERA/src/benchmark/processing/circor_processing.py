@@ -28,6 +28,7 @@ SYSTOLIC_MURMUR_SHAPE = "Systolic murmur shape"
 SYSTOLIC_MURMUR_GRADING = "Systolic murmur grading"
 SYSTOLIC_MURMUR_PITCH = "Systolic murmur pitch"
 SYSTOLIC_MURMUR_QUALITY = "Systolic murmur quality"
+SYSTOLIC_MURMUR_GRADING_W_ABSENT = "Systolic murmur grading w absent"
 chars_to_int = {
     SYSTOLIC_MURMUR_TIMING: {
         "nan": np.nan,
@@ -51,6 +52,7 @@ chars_to_int = {
         "Blowing": "1",
         "Musical": "2",
     },
+    SYSTOLIC_MURMUR_GRADING_W_ABSENT: {"nan": "0", "II/VI": "1", "I/VI": "1", "III/VI": "2"}, # 0: abnormal, 1: soft, 2: loud
 }
 
 OPERACT_HEART_CKPT_PATH = "cks/model/combined/pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-nocircor-epoch=189--valid_acc=0.97-valid_loss=0.2715.ckpt"
@@ -94,6 +96,7 @@ def read_data():
         SYSTOLIC_MURMUR_GRADING: [],
         SYSTOLIC_MURMUR_PITCH: [],
         SYSTOLIC_MURMUR_QUALITY: [],
+        SYSTOLIC_MURMUR_GRADING_W_ABSENT: []
     }
     audio_splits = []
     for dir in dirs:
@@ -106,7 +109,8 @@ def read_data():
             with open(audio_dir + f"/{pat_id}.txt", "r") as f:
                 for line in f:
                     if line.startswith("#Murmur:"):
-                        murmurs.append(murmurs_to_int[line.split(":")[1].strip()])
+                        murmur = murmurs_to_int[line.split(":")[1].strip()]
+                        murmurs.append(murmur)
                     elif line.startswith("#Outcome:"):
                         outcomes.append(outcome_to_int[line.split(":")[1].strip()])
                     else:
@@ -115,6 +119,13 @@ def read_data():
                                 murmur_chars[c].append(
                                     chars_to_int[c][line.split(":")[1].strip()]
                                 )
+                            elif line.startswith(f"#{c.removesuffix(' w absent')}"):
+                                if int_to_murmurs[murmur] == "Unknown":
+                                    murmur_chars[c].append(np.nan)
+                                else:
+                                    murmur_chars[c].append(
+                                        chars_to_int[c][line.split(":")[1].strip()]
+                                    )
 
         sound_files.extend(files)
 
