@@ -1922,6 +1922,7 @@ def main(cfg: DictConfig):
                     cfg.task == "circor_murmurs"
                     or cfg.task == "circor_outcomes"
                     or cfg.task == "circor_systolic-murmur-grading"
+                    or cfg.task == "circor_systolic-murmur-grading-w-absent"
                     or cfg.task == "circor_systolic-murmur-pitch"
                     or cfg.task == "circor_systolic-murmur-quality"
                     or cfg.task == "circor_systolic-murmur-shape"
