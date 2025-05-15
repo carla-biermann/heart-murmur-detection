@@ -125,7 +125,6 @@ def extract_and_save_embeddings(
         ckpt_path = OPERACT_HEART_CKPT_PATH 
         pretrain = "operaCT" # necessary as input to extract_opera_feature
     else:
-        ckpt_path = None
         pretrain = feature
     opera_features = extract_opera_feature(
         sound_dir_loc,
