@@ -1133,16 +1133,27 @@ def finetune_heart(
             np.save(feature_dir + "spectrogram_pad8.npy", x_data)
 
         x_data = np.load(feature_dir + "spectrogram_pad8.npy")
-        pretrained_model = initialize_pretrained_model(pretrain)
-        if pretrain == "null":
-            lr = 1e-4
-            epochs = 64
-            print("-" * 20 + "training from scratch")
-        else:
-            encoder_path = get_encoder_path(pretrain)
+        if (
+            pretrain == "operaCT-heart-indomain" or 
+            pretrain == "operaCT-heart-indomain-pretrained" or
+            pretrain == "operaCT-heart-nonoisy"
+        ):
+            pretrained_model = initialize_pretrained_model("operaCT")
+            encoder_path = get_encoder_path(f"{pretrain}-{dataset_name}")
             print("loading weights from", encoder_path)
             ckpt = torch.load(encoder_path)
             pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+        else:
+            pretrained_model = initialize_pretrained_model(pretrain)
+            if pretrain == "null":
+                lr = 1e-4
+                epochs = 64
+                print("-" * 20 + "training from scratch")
+            else:
+                encoder_path = get_encoder_path(pretrain)
+                print("loading weights from", encoder_path)
+                ckpt = torch.load(encoder_path)
+                pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
 
         if "mae" in pretrain or "GT" in pretrain:
             model = AudioClassifierAudioMAE(
