@@ -25,6 +25,14 @@ SR = 16000
 ENCODER_PATH_OPERA_CE_EFFICIENTNET = "cks/model/encoder-operaCE.ckpt"
 ENCODER_PATH_OPERA_CT_HT_SAT = "cks/model/encoder-operaCT.ckpt"
 ENCODER_PATH_OPERA_GT_VIT = "cks/model/encoder-operaGT.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_PHYSIONET16 = "cks/model/combined/physionet16/encoder-operaCT-physionet16-indomain-epoch=239--valid_acc=0.98-valid_loss=0.0524.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_CIRCOR = "cks/model/combined/circor/encoder-operaCT-circor-indomain-epoch=209--valid_acc=0.99-valid_loss=0.0397.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_PRETRAINED_PHYSIONET16 = "cks/model/combined/physionet16/encoder-operaCT-physionet16-indomain-pretrained-epoch=169--valid_acc=0.99-valid_loss=0.0300.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_PRETRAINED_CIRCOR = "cks/model/combined/circor/encoder-operaCT-circor-indomain-pretrained-epoch=229--valid_acc=0.99-valid_loss=0.0342.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_NONOISY_CIRCOR = "cks/model/combined/pascal_A_pascal_B_physionet16_zchsound_clean/encoder-operaCT-nocircor-nonoisy-epoch=249--valid_acc=0.96-valid_loss=0.2138.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_NONOISY_PASCAL = "cks/model/combined/circor_physionet16_zchsound_clean/encoder-operaCT-nopascal-nonoisy-epoch=159--valid_acc=0.94-valid_loss=0.3256.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_NONOISY_PHYSIONET = "cks/model/combined/circor_pascal_A_pascal_B_zchsound_clean/encoder-operaCT-nophysionet-nonoisy-epoch=249--valid_acc=0.95-valid_loss=0.2898.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_NONOISY_ZCHSOUND = "cks/model/combined/circor_pascal_A_pascal_B_physionet16/encoder-operaCT-nozchsound-epoch=169--valid_acc=0.94-valid_loss=0.3174.ckpt"
 
 
 def get_encoder_path(pretrain):
@@ -32,6 +40,16 @@ def get_encoder_path(pretrain):
         "operaCT": ENCODER_PATH_OPERA_CT_HT_SAT,
         "operaCE": ENCODER_PATH_OPERA_CE_EFFICIENTNET,
         "operaGT": ENCODER_PATH_OPERA_GT_VIT,
+        "operaCT-heart-indomain-physionet16": ENCODER_PATH_OPERA_CT_HEART_PHYSIONET16,
+        "operaCT-heart-indomain-circor": ENCODER_PATH_OPERA_CT_HEART_CIRCOR,
+        "operaCT-heart-indomain-pretrained-physionet16": ENCODER_PATH_OPERA_CT_HEART_PRETRAINED_PHYSIONET16,
+        "operaCT-heart-indomain-pretrained-circor": ENCODER_PATH_OPERA_CT_HEART_PRETRAINED_CIRCOR,
+        "operaCT-heart-nonoisy-physionet16": ENCODER_PATH_OPERA_CT_HEART_NONOISY_PHYSIONET,
+        "operaCT-heart-nonoisy-circor": ENCODER_PATH_OPERA_CT_HEART_NONOISY_CIRCOR,
+        "operaCT-heart-nonoisy-pascal": ENCODER_PATH_OPERA_CT_HEART_NONOISY_PASCAL,
+        "operaCT-heart-nonoisy-zchsound": ENCODER_PATH_OPERA_CT_HEART_NONOISY_ZCHSOUND,
+        "operaCT-heart-nonoisy-zchsound_clean": ENCODER_PATH_OPERA_CT_HEART_NONOISY_ZCHSOUND,
+        "operaCT-heart-nonoisy-zchsound_noisy": ENCODER_PATH_OPERA_CT_HEART_NONOISY_ZCHSOUND,
     }
     if not os.path.exists(encoder_paths[pretrain]):
         print("Model checkpoint not found, downloading from Hugging Face")
