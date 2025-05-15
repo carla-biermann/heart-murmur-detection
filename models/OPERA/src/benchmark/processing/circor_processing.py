@@ -248,7 +248,9 @@ def extract_and_save_embeddings_baselines(feature="audiomae"):
         np.save(feature_dir + feature + "_feature.npy", np.array(hear_feature))
 
 
-def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
+def extract_and_save_embeddings(
+    feature="operaCE", input_sec=8, dim=1280, fine_tuned=None, ckpt_path=None, seed=None
+):
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     if feature == "operaCT-heart":
         ckpt_path = OPERACT_HEART_CKPT_PATH
@@ -257,7 +259,6 @@ def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
         ckpt_path = OPERACT_HEART_INDOMAIN_CKPT_PATH
         pretrain = "operaCT"
     else:
-        ckpt_path = None
         pretrain = feature
     opera_features = extract_opera_feature(
         sound_dir_loc,
@@ -268,7 +269,8 @@ def extract_and_save_embeddings(feature="operaCE", input_sec=15, dim=1280):
         ckpt_path=ckpt_path,
     )
     feature += str(dim)
-    np.save(feature_dir + feature + "_feature.npy", np.array(opera_features))
+    suffix = "" if not fine_tuned else f"_finetuned_{fine_tuned}_{seed}"
+    np.save(feature_dir + feature + suffix + "_feature.npy", np.array(opera_features))
 
 
 if __name__ == "__main__":
@@ -278,6 +280,9 @@ if __name__ == "__main__":
     parser.add_argument("--min_len_cnn", type=int, default=8)
     parser.add_argument("--min_len_htsat", type=int, default=8)
     parser.add_argument("--train_only", type=bool, default=False)
+    parser.add_argument("--fine_tuned", type=str, default=None)
+    parser.add_argument("--ckpt_path", type=str, default=None)
+    parser.add_argument("--seed", type=int, default=None)
 
     args = parser.parse_args()
 
@@ -312,4 +317,11 @@ if __name__ == "__main__":
 
         # input_sec = 15 from https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10081773
 
-        extract_and_save_embeddings(args.pretrain, input_sec=input_sec, dim=args.dim)
+        extract_and_save_embeddings(
+            args.pretrain, 
+            input_sec=input_sec, 
+            dim=args.dim,
+            fine_tuned=args.fine_tuned,
+            ckpt_path=args.ckpt_path,
+            seed=args.seed
+        )
