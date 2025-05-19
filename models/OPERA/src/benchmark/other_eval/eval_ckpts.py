@@ -157,8 +157,14 @@ def evaluate_finetuned_model(
     feature_dir="feature/circor_eval/",
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
-    loss="weighted", # change
+    loss="weighted",
+    finetuned_dataset_name=None,
+    finetuned_task=None,
 ):
+    if finetuned_dataset_name is None:
+        finetuned_dataset_name = dataset_name
+    if finetuned_task is None:
+        finetuned_task = task
     y_set = np.load(feature_dir + "train_test_split.npy")
     y_label = np.load(feature_dir + labels_filename)
 
@@ -180,9 +186,9 @@ def evaluate_finetuned_model(
 
     
     ck_path_dir = (
-        f"cks/finetune/{dataset_name}_{task}/"
-        if task
-        else f"cks/finetune/{dataset_name}"
+        f"cks/finetune/{finetuned_dataset_name}_{finetuned_task}/"
+        if finetuned_task
+        else f"cks/finetune/{finetuned_dataset_name}"
     )
     ck_prefix = "_".join(
         [
@@ -210,7 +216,7 @@ def evaluate_finetuned_model(
         )
 
     ckpt_path = ck_files[0]
-    ckpt_path = "cks/finetune/zchsound_clean_murmurs/finetuning_linear_clap2023_64_0.0001_64_1e-05_0_weighted-epoch=08-valid_auc=0.97-v1.ckpt"
+    #ckpt_path = "cks/finetune/zchsound_clean_murmurs/finetuning_linear_clap2023_64_0.0001_64_1e-05_0_weighted-epoch=08-valid_auc=0.97-v1.ckpt"
     print(f"Found checkpoint: {ckpt_path}")
 
     wandb_logger = WandbLogger(
@@ -233,6 +239,8 @@ def evaluate_finetuned_model(
             "task": task,
             "eval_only": True,
             "loss": loss,
+            "finetuned_dataset_name": finetuned_dataset_name,
+            "finetuned_task":finetuned_task,
         }
     )
 
@@ -430,6 +438,16 @@ def evaluate_model(cfg, seed):
         batch_size=cfg.batch_size,
         loss=cfg.loss,
     )
+
+    if cfg.finetuned_task != "none":
+        parts = cfg.finetuned_task.split("_")
+        eval_args.update(finetuned_dataset_name=parts[0])
+        if len(parts) == 1:
+            eval_args.update(finetuned_task="")
+        elif len(parts) == 2:
+            eval_args.update(finetuned_task=parts[1])
+        elif len(parts) == 3: # zchsound_clean_murmurs,zchsound_noisy_murmurs
+            eval_args.update(finetuned_task=f"{parts[1]}_{parts[2]}")
 
     if cfg.task == "physionet16":
         dataset_name = "physionet16"
