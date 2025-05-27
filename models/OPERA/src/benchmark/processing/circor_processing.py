@@ -59,6 +59,8 @@ OPERACT_HEART_CKPT_PATH = "cks/model/combined/pascal_A_pascal_B_physionet16_zchs
 OPERACT_HEART_NONOISY_CKPT_PATH = "cks/model/combined/pascal_A_pascal_B_physionet16_zchsound_clean/encoder-operaCT-nocircor-nonoisy-epoch=249--valid_acc=0.96-valid_loss=0.2138.ckpt"
 OPERACT_HEART_INDOMAIN_CKPT_PATH = "cks/model/combined/circor/encoder-operaCT-circor-indomain-epoch=209--valid_acc=0.99-valid_loss=0.0397.ckpt"
 OPERACT_HEART_INDOMAIN_PRETRAINED_CKPT_PATH = "cks/model/combined/circor/encoder-operaCT-circor-indomain-pretrained-epoch=229--valid_acc=0.99-valid_loss=0.0342.ckpt"
+OPERACT_HEART_ALL_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-epoch=159--valid_acc=0.94-valid_loss=0.3790.ckpt"
+
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -266,6 +268,9 @@ def extract_and_save_embeddings(
     elif feature == "operaCT-heart-indomain-pretrained":
         ckpt_path = OPERACT_HEART_INDOMAIN_PRETRAINED_CKPT_PATH
         pretrain = "operaCT"
+    elif feature == "operaCT-heart-all":
+        ckpt_path = OPERACT_HEART_ALL_CKPT_PATH
+        pretrain = "operaCT"
     else:
         pretrain = feature
     opera_features = extract_opera_feature(
@@ -318,6 +323,7 @@ if __name__ == "__main__":
             or args.pretrain == "operaCT-heart-nonoisy"
             or args.pretrain == "operaCT-heart-indomain"
             or args.pretrain == "operaCT-heart-indomain-pretrained"
+            or args.pretrain == "operaCT-heart-all"
         ):
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
