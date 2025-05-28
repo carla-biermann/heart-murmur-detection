@@ -136,6 +136,9 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10, ckpt_path=None):
         use_custom_patch=False,
     )
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
     model.eval()
     # Load pretrained weights for model
     # Try "model" key first (assuming only state dict is saved), otherwise get "state_dict" from full training checkpoint.
@@ -153,8 +156,8 @@ def extract_audioMAE_feature(sound_dir_loc, input_sec=10, ckpt_path=None):
             if x.shape[1] >= 16:  # Kernel size can't be greater than actual input size
                 x = np.expand_dims(x, axis=0)
 
-                x = torch.tensor(x, dtype=torch.float)
-                fea = model.forward_feature(x).detach().numpy()
+                x = torch.tensor(x, dtype=torch.float).to(device)
+                fea = model.forward_feature(x).detach().cpu().numpy()
 
                 features.append(fea)
 
