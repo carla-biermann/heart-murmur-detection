@@ -19,6 +19,7 @@ def visualize_embedding_multiple(
     split="test",
     num_samples=10,
     fea_dim=1280,
+    plot_title=None,
 ):
     for dt, max_len in data_source.items():
         if dt in ["covidbreath", "covidcough"]:
@@ -52,6 +53,9 @@ def visualize_embedding_multiple(
 
         elif dt == "covidUKcough":
             filenames = list(np.load("datasets/covidUK/entire_cough_filenames.npy"))
+
+        elif dt in ["circor", "physionet16", "zchsound_clean", "zchsound_noisy", "pascal_A", "pascal_B"]:
+            filenames = list(np.load(f"feature/{dt}_eval/entire_spec_filenames.npy"))
 
         label_list = list(range(len(filenames)))
         encoder_path = get_encoder_path(pretrain)
@@ -114,22 +118,36 @@ def visualize_embedding_multiple(
             self_label_list,
             title=pretrain + "_" + dt + "_" + split,
             n_instance=num_samples,
+            plot_title=plot_title,
         )
 
 
 if __name__ == "__main__":
+    # data_source = {
+    #     "covidbreath": 200,
+    #     "covidcough": 50,
+    #     "icbhi": 50,
+    #     "coughvid": 50,
+    #     "hf_lung": 200,
+    #     "covidUKexhalation": 100,
+    #     "covidUKcough": 50,
+    # }
+
+    # visualize_embedding_multiple(
+    #     pretrain="operaCE", data_source=data_source, split="test", fea_dim=1280
+    # )
+
     data_source = {
-        "covidbreath": 200,
-        "covidcough": 50,
-        "icbhi": 50,
-        "coughvid": 50,
-        "hf_lung": 200,
-        "covidUKexhalation": 100,
-        "covidUKcough": 50,
+        "circor": 251,
+        "pascal_A": 63,
+        "pascal_B": 63,
+        "physionet16": 251,
+        "zchsound_clean": 251,
+        "zchsound_noisy": 251,
     }
     visualize_embedding_multiple(
-        pretrain="operaCT", data_source=data_source, split="test", fea_dim=768
+        pretrain="operaCT", data_source=data_source, split="test", fea_dim=768, plot_title="OPERA-CT"
     )
     visualize_embedding_multiple(
-        pretrain="operaCE", data_source=data_source, split="test", fea_dim=1280
+        pretrain="operaCT-heart-all", data_source=data_source, split="test", fea_dim=768, plot_title="OPERA-CT CP (all)"
     )

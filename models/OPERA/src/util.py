@@ -672,7 +672,7 @@ def plot_tsne(x_plot, y_plot, order=None, color="hls", title=""):
     print("t-sne plot saved to", "fig/tsne/" + title + ".png")
 
 
-def plot_tsne_individual(x_plot, y_plot, order=None, title="", n_instance=1401):
+def plot_tsne_individual(x_plot, y_plot, order=None, title="", n_instance=1401, plot_title=None):
     from sklearn.manifold import TSNE
 
     # import colorcet as cc
@@ -700,9 +700,11 @@ def plot_tsne_individual(x_plot, y_plot, order=None, title="", n_instance=1401):
 
     plt.xticks(visible=False)
     plt.yticks(visible=False)
-    plt.xlabel("T-SNE dim 1", fontsize=14)
-    plt.ylabel("T-SNE dim 2", fontsize=14)
-    plt.savefig("fig/tsne_individual/" + title + ".png", bbox_inches="tight")
+    plt.xlabel("T-SNE dim 1", fontsize=16)
+    plt.ylabel("T-SNE dim 2", fontsize=16)
+    if plot_title:
+        plt.title(plot_title, fontsize=20)
+    plt.savefig("fig/tsne_individual/" + title + ".pdf", bbox_inches="tight")
     print("fig/tsne_individual/" + title + ".png")
 
 
