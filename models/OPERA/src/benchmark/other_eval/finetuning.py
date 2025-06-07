@@ -5,11 +5,13 @@ import time
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 from lightning.pytorch import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
+from torchlibrosa.augmentation import SpecAugmentation
 from torch.utils.data import DataLoader
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -29,6 +31,7 @@ from src.util import (
     random_mask,
     random_multiply,
     train_test_split_from_list,
+    get_weights_tensor,
 )
 
 torch.backends.cudnn.deterministic = True
@@ -43,14 +46,27 @@ class AudioDataset(torch.utils.data.Dataset):
         from_npy=False,
         crop_mode="first",
         from_audio=False,
+        spec_augment=False,
+        time_drop_width=100,
+        time_stripes_num=2,
+        freq_drop_width=20,
+        freq_stripes_num=2,
     ):
         self.data = data[0]
         self.label = data[1]
+        self.annotations = data[2] if len(data) > 2 else None
         self.max_len = max_len
         self.augment = augment
         self.from_npy = from_npy
         self.crop_mode = crop_mode
         self.from_audio = from_audio
+        self.spec_augment = spec_augment
+        self.spec_augmenter = SpecAugmentation(
+            time_drop_width=time_drop_width,
+            time_stripes_num=time_stripes_num,
+            freq_drop_width=freq_drop_width,
+            freq_stripes_num=freq_stripes_num,
+        )
 
     def __len__(self):
         return len(self.data)
@@ -65,7 +81,12 @@ class AudioDataset(torch.utils.data.Dataset):
         label = self.label[idx]
 
         if self.from_audio:
-            return x, label
+            if self.annotations is not None:
+                annotation = self.annotations[idx]
+                annotation = torch.tensor(annotation, dtype=torch.long)
+                return x, label, annotation
+            else:
+                return x, label
 
         if self.max_len:
             if self.crop_mode == "random":
@@ -80,7 +101,26 @@ class AudioDataset(torch.utils.data.Dataset):
         x = torch.tensor(x, dtype=torch.float)
         label = torch.tensor(label, dtype=torch.long)
 
-        return x, label
+        if self.spec_augment:
+            original_dim = x.ndim
+            if original_dim == 2:
+                x = x.unsqueeze(0).unsqueeze(0)  # (1, 1, F, T)
+            elif original_dim == 3:
+                x = x.unsqueeze(0)               # (1, C, F, T)
+            
+            x = self.spec_augmenter(x)           # requires 4 dim
+
+            if original_dim == 2:
+                x = x.squeeze(0).squeeze(0)     # (F, T)
+            elif original_dim == 3:
+                x = x.squeeze(0)                # (1, C, F, T)
+
+        if self.annotations is not None:
+            annotation = self.annotations[idx]
+            annotation = torch.tensor(annotation, dtype=torch.long)
+            return x, label, annotation
+        else:
+            return x, label
 
 
 class DecayLearningRate(pl.Callback):
@@ -268,7 +308,7 @@ def finetune_covid19sounds(
         y_label_test = y_label[y_set == 2]
     else:
         raise NotImplementedError(
-            f"Task not implemented: Covid-19 sounds task {task}, please check the args."
+            f"Task not implemented: Covid-19 sounds task {task}, please check the cfg."
         )
 
     print(collections.Counter(y_label_train))
@@ -845,15 +885,15 @@ def finetune_heart(
     batch_size=64,
     lr=1e-4,
     head="linear",
+    loss="unweighted",
     feat_dim=1280,
     dataset_name="circor",
     task="murmurs",
     feature_dir="feature/circor_eval/",
     labels_filename="murmurs.npy",
     freeze_encoder="none",  # Control freezing
+    spec_augment=False,
 ):
-    n_cls = len(set(np.load(feature_dir + labels_filename)))
-
     run_name = get_wandb_name(pretrain, f"{dataset_name}-{task}", head)
     wandb_logger = WandbLogger(
         project="Heart-Sound-Analysis-FT",
@@ -873,6 +913,13 @@ def finetune_heart(
         "avg_unweighted_precision",
         "unweighted_specificity",
         "avg_unweighted_specificity",
+        "circor_weighted_murmur_acc",
+        "circor_weighted_outcome_acc",
+        "unweighted_accuracy",
+        "circor_outcome_cost",
+        "macro_F1",
+        "macro_auroc",
+        "physionet16_score",
     ]
 
     print("*" * 48)
@@ -887,11 +934,35 @@ def finetune_heart(
         head,
     )
 
+    y_set = np.load(feature_dir + "train_test_split.npy")
+    y_label = np.load(feature_dir + labels_filename)
+
+    # Filter out NaN values (Circor murmur characteristics)
+    valid_indices = ~np.isnan(y_label)
+    y_label = y_label[valid_indices].astype(np.int32)
+    y_set = y_set[valid_indices]
+
+    n_cls = len(set(y_label))
+
+    print(f"Label distribution: {collections.Counter(y_label)}")
+    print(f"Unique labels: {collections.Counter(y_set)}")
+    y_label_train = y_label[y_set == "train"]
+
+    if loss == "weighted":
+        weights_tensor = get_weights_tensor(y_label_train, n_cls)
+        print("Weights:", weights_tensor)
+        loss_func = nn.CrossEntropyLoss(weight=weights_tensor)
+    else:
+        loss_func = None
+
     from_audio = False
     if pretrain == "audiomae":
         from src.benchmark.baseline.audioMAE.models_mae import (
             vit_base_patch16,
         )
+
+        time_drop_width = 100
+        freq_drop_width = 20
 
         if not os.path.exists(feature_dir + "fbank_audiomae.npy"):
             from src.util import get_split_signal_fbank_pad
@@ -931,6 +1002,8 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            loss_func=loss_func,
+            freeze_encoder=freeze_encoder,
             metrics=metrics,
             dataset=dataset_name,
             task=task
@@ -938,6 +1011,9 @@ def finetune_heart(
 
     elif pretrain == "clap":
         from src.benchmark.baseline.msclap import CLAP
+
+        time_drop_width = 64
+        freq_drop_width = 8
 
         audio_files = np.load(feature_dir + "sound_dir_loc.npy")
         x_data = np.array(audio_files)
@@ -952,11 +1028,15 @@ def finetune_heart(
             feat_dim=feat_dim,
             metrics=metrics,
             dataset=dataset_name,
-            task=task
+            task=task,
+            loss_func=loss_func,
         )
         from_audio = True
     elif pretrain == "clap2023":
         from src.benchmark.baseline.msclap import CLAP
+
+        time_drop_width = 64
+        freq_drop_width = 8
 
         audio_files = np.load(feature_dir + "sound_dir_loc.npy")
         x_data = np.array(audio_files)
@@ -971,10 +1051,13 @@ def finetune_heart(
             feat_dim=feat_dim,
             metrics=metrics,
             dataset=dataset_name,
-            task=task
+            task=task,
+            loss_func=loss_func,
         )
         from_audio = True
     elif pretrain == "hear":
+        time_drop_width = 0
+        freq_drop_width = 0
         if not os.path.exists(feature_dir + "fbank_hear.npy"):
             from src.util import get_split_signal_fbank_pad
 
@@ -990,7 +1073,7 @@ def finetune_heart(
             np.save(feature_dir + "fbank_hear.npy", x_data)
 
         x_data = np.load(feature_dir + "fbank_hear.npy")
-        feat_dim=1024
+        feat_dim = 1024
         batch_size = 16
         configuration = ViTConfig(
             image_size=(192, 128),
@@ -1023,11 +1106,14 @@ def finetune_heart(
             lr=lr,
             l2_strength=l2_strength,
             feat_dim=feat_dim,
+            loss_func=loss_func,
             metrics=metrics,
             dataset=dataset_name,
             task=task
         )
     else:
+        time_drop_width = 40
+        freq_drop_width = 8
         if not os.path.exists(feature_dir + "spectrogram_pad8.npy"):
             from src.util import get_split_signal_librosa
 
@@ -1047,16 +1133,27 @@ def finetune_heart(
             np.save(feature_dir + "spectrogram_pad8.npy", x_data)
 
         x_data = np.load(feature_dir + "spectrogram_pad8.npy")
-        pretrained_model = initialize_pretrained_model(pretrain)
-        if pretrain == "null":
-            lr = 1e-4
-            epochs = 64
-            print("-" * 20 + "training from scratch")
-        else:
-            encoder_path = get_encoder_path(pretrain)
+        if (
+            pretrain == "operaCT-heart-indomain" or 
+            pretrain == "operaCT-heart-indomain-pretrained" or
+            pretrain == "operaCT-heart-nonoisy"
+        ):
+            pretrained_model = initialize_pretrained_model("operaCT")
+            encoder_path = get_encoder_path(f"{pretrain}-{dataset_name}")
             print("loading weights from", encoder_path)
             ckpt = torch.load(encoder_path)
             pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+        else:
+            pretrained_model = initialize_pretrained_model(pretrain)
+            if pretrain == "null":
+                lr = 1e-4
+                epochs = 64
+                print("-" * 20 + "training from scratch")
+            else:
+                encoder_path = get_encoder_path(pretrain)
+                print("loading weights from", encoder_path)
+                ckpt = torch.load(encoder_path)
+                pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
 
         if "mae" in pretrain or "GT" in pretrain:
             model = AudioClassifierAudioMAE(
@@ -1065,12 +1162,13 @@ def finetune_heart(
                 lr=lr,
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
+                loss_func=loss_func,
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task
             )
         else:
-            freeze_encoder = "early" if pretrain == "operaCE" else "none"
+            #freeze_encoder = "early" if pretrain == "operaCE" else "none"
             net = pretrained_model.encoder
             model = AudioClassifier(
                 net=net,
@@ -1080,6 +1178,7 @@ def finetune_heart(
                 l2_strength=l2_strength,
                 feat_dim=feat_dim,
                 freeze_encoder=freeze_encoder,
+                loss_func=loss_func,
                 metrics=metrics,
                 dataset=dataset_name,
                 task=task
@@ -1097,14 +1196,16 @@ def finetune_heart(
             "seed": seed,
             "dataset": dataset_name,
             "task": task,
-            "freeze_encoder": freeze_encoder
+            "freeze_encoder": freeze_encoder,
+            "loss": loss,
+            "spec_augment": spec_augment,
+            "time_drop_width": time_drop_width,
+            "freq_drop_width": freq_drop_width
         }
     )
 
-    y_set = np.load(feature_dir + "train_test_split.npy")
-    y_label = np.load(feature_dir + labels_filename)
-    print(collections.Counter(y_label))
-    print(collections.Counter(y_set))
+    # Filter out NaN values
+    x_data = x_data[valid_indices]
 
     x_data_train = x_data[y_set == "train"]
     y_label_train = y_label[y_set == "train"]
@@ -1113,15 +1214,18 @@ def finetune_heart(
     x_data_test = x_data[y_set == "test"]
     y_label_test = y_label[y_set == "test"]
 
-    print(collections.Counter(y_label_train))
-    print(collections.Counter(y_label_vad))
-    print(collections.Counter(y_label_test))
+    print(f"Train set label distributions {collections.Counter(y_label_train)}")
+    print(f"Val set label distributions {collections.Counter(y_label_vad)}")
+    print(f"Test set label distributions {collections.Counter(y_label_test)}")
 
     train_data = AudioDataset(
         (x_data_train, y_label_train),
         augment=False,
         max_len=False,
         from_audio=from_audio,
+        spec_augment=spec_augment,
+        time_drop_width=time_drop_width,
+        freq_drop_width=freq_drop_width
     )
     test_data = AudioDataset(
         (x_data_test, y_label_test), augment=False, max_len=False, from_audio=from_audio
@@ -1129,6 +1233,29 @@ def finetune_heart(
     val_data = AudioDataset(
         (x_data_vad, y_label_vad), augment=False, max_len=False, from_audio=from_audio
     )
+
+    if dataset_name == "physionet16":
+        annotations = np.load(feature_dir + "annotations.npy").astype(np.int32)
+        annotations = annotations[valid_indices]
+        annotations_train = annotations[y_set == "train"]
+        annotations_vad = annotations[y_set == "val"]
+        annotations_test = annotations[y_set == "test"]
+
+        train_data = AudioDataset(
+            (x_data_train, y_label_train, annotations_train),
+            augment=False,
+            max_len=False,
+            from_audio=from_audio,
+            spec_augment=spec_augment,
+            time_drop_width=time_drop_width,
+            freq_drop_width=freq_drop_width
+        )
+        test_data = AudioDataset(
+            (x_data_test, y_label_test, annotations_test), augment=False, max_len=False, from_audio=from_audio
+        )
+        val_data = AudioDataset(
+            (x_data_vad, y_label_vad, annotations_vad), augment=False, max_len=False, from_audio=from_audio
+        )
 
     train_loader = DataLoader(
         train_data, batch_size=batch_size, num_workers=2, shuffle=True
@@ -1158,6 +1285,9 @@ def finetune_heart(
             str(seed)
         ]
     )
+
+    ck_filename = ck_filename + "_early" if freeze_encoder == "early" else ck_filename
+    ck_filename = ck_filename + "_weighted" if loss == "weighted" else ck_filename
 
     checkpoint_callback = ModelCheckpoint(
         monitor="valid_auc",
@@ -1215,120 +1345,143 @@ def finetune_heart(
     return auc
 
 
-if __name__ == "__main__":
-    import argparse
+@hydra.main(config_path="../configs", config_name="finetune_config", version_base=None)
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="icbhidisease")
-    parser.add_argument("--pretrain", type=str, default="operaCE")
-    parser.add_argument("--gridsearch", type=bool, default=False)
-    parser.add_argument(
-        "--lr", type=float, default=1e-4
-    )  # not used if gridsearch = True
-    parser.add_argument(
-        "--l2_strength", type=float, default=1e-5
-    )  # not used if gridsearch = True
-    parser.add_argument("--head", type=str, default="linear")
-    parser.add_argument("--modality", type=str, default="cough")
-    parser.add_argument("--mapgoogle", type=bool, default=False)  # align test set
-    parser.add_argument("--dim", type=int, default=1280)
-    parser.add_argument("--n_run", type=int, default=5)
-    parser.add_argument("--label", type=str, default="smoker")  # align test set
-    parser.add_argument("--LOOCV", type=bool, default=False)
-    parser.add_argument("--avgprob", type=bool, default=False)
-    args = parser.parse_args()
-
-    if not args.LOOCV:
+    if not cfg.LOOCV:
         auc_scores = []
-        for seed in range(args.n_run):
+        for seed in range(cfg.n_run):
             np.random.seed(seed)
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
             seed_everything(seed, workers=True)
-            if args.task == "covid19sounds":
+            if cfg.task == "covid19sounds":
                 auc = finetune_covid19sounds(
                     task=1,
-                    pretrain=args.pretrain,
-                    modality=args.modality,
+                    pretrain=cfg.pretrain,
+                    modality=cfg.modality,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "covid19soundsdownsample":
+            elif cfg.task == "covid19soundsdownsample":
                 auc = finetune_covid19sounds(
                     task="1downsample",
-                    pretrain=args.pretrain,
-                    modality=args.modality,
+                    pretrain=cfg.pretrain,
+                    modality=cfg.modality,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "snoring":
+            elif cfg.task == "snoring":
                 auc = finetune_ssbpr(
-                    pretrain=args.pretrain, epochs=64, feat_dim=args.dim
+                    pretrain=cfg.pretrain, epochs=64, feat_dim=cfg.dim
                 )
-            elif args.task == "icbhidisease":
+            elif cfg.task == "icbhidisease":
                 auc = finetune_icbhidisease(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
                     l2_strength=1e-4,
-                    feat_dim=args.dim,
+                    feat_dim=cfg.dim,
                 )
-            elif args.task == "circor_murmurs" or args.task == "circor_outcomes":
-                task = args.task.split("_")[1]
+            elif (
+                cfg.task == "circor_murmurs"
+                or cfg.task == "circor_outcomes"
+                or cfg.task == "circor_systolic-murmur-grading"
+                or cfg.task == "circor_systolic-murmur-grading-w-absent"
+                or cfg.task == "circor_systolic-murmur-pitch"
+                or cfg.task == "circor_systolic-murmur-quality"
+                or cfg.task == "circor_systolic-murmur-shape"
+                or cfg.task == "circor_systolic-murmur-timing"
+            ):
+                task = cfg.task.split("_")[1]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="circor",
                     task=task,
                     feature_dir="feature/circor_eval/",
                     labels_filename=f"{task}.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
-            elif args.task == "zchsound_clean" or args.task == "zchsound_noisy":
-                task = args.task.split("_")[1]
+            elif cfg.task == "zchsound_clean" or cfg.task == "zchsound_noisy": # ZCHSound outcomes
+                task = cfg.task.split("_")[1]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="zchsound",
                     task=task,
-                    feature_dir=f"feature/{args.task}_eval/",
-                    labels_filename="labels.npy",
+                    feature_dir=f"feature/{cfg.task}_eval/",
+                    labels_filename="outcomes.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
-            elif args.task == "pascal_A" or args.task == "pascal_B":
-                task = args.task.split("_")[1]
+            elif cfg.task == "zchsound_clean_murmurs" or cfg.task == "zchsound_noisy_murmurs": # ZCHSound murmurs
+                data_task_list = cfg.task.split("_")
+                dataset_name = f"{data_task_list[0]}_{data_task_list[1]}"
+                task = data_task_list[2]
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
+                    dataset_name=dataset_name,
+                    task=task,
+                    feature_dir=f"feature/{dataset_name}_eval/",
+                    labels_filename=f"{task}.npy",
+                    seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
+                )
+            elif cfg.task == "pascal_A" or cfg.task == "pascal_B":
+                task = cfg.task.split("_")[1]
+                auc = finetune_heart(
+                    pretrain=cfg.pretrain,
+                    epochs=64,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="pascal",
                     task=task,
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
-            elif args.task == "physionet16":
+            elif cfg.task == "physionet16":
                 auc = finetune_heart(
-                    pretrain=args.pretrain,
+                    pretrain=cfg.pretrain,
                     epochs=64,
-                    l2_strength=args.l2_strength,
-                    feat_dim=args.dim,
+                    l2_strength=cfg.l2_strength,
+                    feat_dim=cfg.dim,
                     dataset_name="physionet16",
                     task="",
-                    feature_dir=f"feature/{args.task}_eval/",
+                    feature_dir=f"feature/{cfg.task}_eval/",
                     labels_filename="labels.npy",
                     seed=seed,
+                    freeze_encoder=cfg.freeze_encoder,
+                    loss=cfg.loss,
+                    spec_augment=cfg.spec_augment
                 )
             auc_scores.append(auc)
         print("=" * 48)
         print(auc_scores)
         print(
-            f"Five times mean task {args.task} finetuning from {args.pretrain} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
+            f"Five times mean task {cfg.task} finetuning from {cfg.pretrain} results: auc mean {np.mean(auc_scores):.3f} ± {np.std(auc_scores):.3f}"
         )
         print("=" * 48)
+
+if __name__ == '__main__':
+    main()

@@ -5,7 +5,6 @@
 # some code below is referenced from https://github.com/CVxTz/COLA_pytorch
 
 
-import argparse
 import time
 
 import numpy as np
@@ -17,6 +16,9 @@ from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 import wandb
+import hydra
+from omegaconf import DictConfig
+
 
 from src.model.models_cola import ColaMD
 from src.util import random_crop, random_mask, random_multiply
@@ -286,41 +288,8 @@ def train_multiple_data(
     wandb.finish()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--title", type=str)
-    parser.add_argument("--data", type=str, default="multiple")
-
-    # for training with multiple data
-    parser.add_argument("--covidbreath", type=bool, default=False)
-    parser.add_argument("--covidcough", type=bool, default=False)
-    parser.add_argument("--icbhi", type=bool, default=False)
-    parser.add_argument("--icbhicycle", type=bool, default=False)
-    parser.add_argument("--coughvid", type=bool, default=False)
-    parser.add_argument("--hf_lung", type=bool, default=False)
-    parser.add_argument("--covidUKexhalation", type=bool, default=False)
-    parser.add_argument("--covidUKcough", type=bool, default=False)
-    parser.add_argument("--circor", type=bool, default=False)
-    parser.add_argument("--pascal_A", type=bool, default=False)
-    parser.add_argument("--pascal_B", type=bool, default=False)
-    parser.add_argument("--physionet16", type=bool, default=False)
-    parser.add_argument("--zchsound_clean", type=bool, default=False)
-    parser.add_argument("--zchsound_noisy", type=bool, default=False)
-
-    # control training
-    parser.add_argument("--pretrain", type=str, default=None)
-    parser.add_argument("--dim_hidden", type=int, default=1280)
-    parser.add_argument("--dim_out", type=int, default=512)
-    parser.add_argument("--encoder", type=str, default="efficientnet")
-    parser.add_argument("--epoches", type=int, default=512)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--freeze_encoder", type=str, default="none")
-
-    # training goal
-    parser.add_argument("--method", type=str, default="cola")
-
-    args = parser.parse_args()
-
+@hydra.main(config_path="../benchmark/configs", config_name="pretrain_config", version_base=None)
+def main(cfg: DictConfig):
     optimal_max_len = {
         "covidbreath": 200,
         "covidcough": 50,
@@ -338,21 +307,25 @@ if __name__ == "__main__":
         "zchsound_noisy": 251,
     }
 
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
 
     data_source = {}
     for dt, max_len in optimal_max_len.items():
-        if getattr(args, dt) is True:
+        if getattr(cfg, dt) is True:
             data_source[dt] = max_len
     train_multiple_data(
-        args.title,
+        cfg.title,
         data_source=data_source,
-        dim_hidden=args.dim_hidden,
-        dim_out=args.dim_out,
-        encoder=args.encoder,
-        n_epoches=args.epoches,
-        training_method=args.method,
-        pretrain=args.pretrain,
-        freeze_encoder=args.freeze_encoder,
+        dim_hidden=cfg.dim_hidden,
+        dim_out=cfg.dim_out,
+        encoder=cfg.encoder,
+        n_epoches=cfg.epoches,
+        training_method=cfg.method,
+        pretrain=cfg.pretrain,
+        freeze_encoder=cfg.freeze_encoder,
     )
+
+
+if __name__ == "__main__":
+    main()

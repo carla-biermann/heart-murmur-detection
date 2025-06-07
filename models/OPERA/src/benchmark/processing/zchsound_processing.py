@@ -24,6 +24,7 @@ murmurs_to_int = {"NORMAL": 0, "ASD": 1, "PDA": 1, "PFO": 1, "VSD": 1}
 outcomes_to_int = {"ASD": 0, "NORMAL": 1, "PDA": 2, "PFO": 3, "VSD": 4}
 
 OPERACT_HEART_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16/encoder-operaCT-nozchsound-epoch=169--valid_acc=0.94-valid_loss=0.3174.ckpt"
+OPERACT_HEART_ALL_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-epoch=159--valid_acc=0.94-valid_loss=0.3790.ckpt"
 
 def get_labels_from_csv(path):
     """Read labels from ZCHSound CSV file and create mappings."""
@@ -124,6 +125,9 @@ def extract_and_save_embeddings(
     if feature == "operaCT-heart":
         ckpt_path = OPERACT_HEART_CKPT_PATH 
         pretrain = "operaCT" # necessary as input to extract_opera_feature
+    elif feature == "operaCT-heart-all":
+        ckpt_path = OPERACT_HEART_ALL_CKPT_PATH
+        pretrain = "operaCT"
     else:
         pretrain = feature
     opera_features = extract_opera_feature(
@@ -183,7 +187,11 @@ if __name__ == "__main__":
             args.pretrain, args.fine_tuned, args.ckpt_path, seed
         )
     else:
-        if args.pretrain == "operaCT" or args.pretrain == "operaCT-heart":
+        if (
+            args.pretrain == "operaCT"
+            or args.pretrain == "operaCT-heart"
+            or args.pretrain == "operaCT-heart-all"
+        ):
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":
             input_sec = args.min_len_cnn
