@@ -1,0 +1,27 @@
+# defaults:
+# - override /hydra/launcher: submitit_slurm
+
+# hydra:
+#   callbacks:
+#     log_job_return:
+#       target: hydra.experimental.callbacks.LogJobReturnCallback
+#   launcher:
+#     nodes: 1
+#     gpus_per_node: 1
+#     timeout_min: 150
+#     constraint:
+#     partition: ampere
+#     #qos: INTR # interactive
+#     name: ${hydra.run.dir}/${hydra.job.override_dirname}
+#     max_num_timeout: 1
+#     stderr_to_stdout: true
+#     account: COMPUTERLAB-SL2-GPU
+
+pretrain: operaCE
+dim: 1280
+min_len_cnn: 8
+min_len_htsat: 8
+train_only: False
+fine_tuned: None
+ckpt_path: None
+seed: None

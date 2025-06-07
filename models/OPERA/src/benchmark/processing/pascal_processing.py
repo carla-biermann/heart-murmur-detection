@@ -6,7 +6,7 @@ import os
 
 import numpy as np
 from sklearn.model_selection import train_test_split
-from src.benchmark.model_util import extract_opera_feature
+from src.benchmark.model_util import extract_opera_feature, get_audiomae_encoder_path
 from src.benchmark.baseline.extract_feature import (
     extract_audioMAE_feature,
     extract_clap_feature,
@@ -19,6 +19,7 @@ data_dir = "datasets/PASCAL/"
 OPERACT_HEART_CKPT_PATH = "cks/model/combined/circor_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-nopascal-epoch=99--valid_acc=0.93-valid_loss=0.3276.ckpt"
 OPERACT_HEART_NONOISY_CKPT_PATH = "cks/model/combined/circor_physionet16_zchsound_clean/encoder-operaCT-nopascal-nonoisy-epoch=159--valid_acc=0.94-valid_loss=0.3256.ckpt"
 OPERACT_HEART_ALL_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-epoch=159--valid_acc=0.94-valid_loss=0.3790.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_ALL_SCRATCH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-scratch-epoch=209--valid_acc=0.92-valid_loss=0.3899.ckpt"
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -141,6 +142,10 @@ def extract_and_save_embeddings_baselines(
     elif feature == "hear":  # no fine-tuning possible, not open-source
         hear_feature = extract_HeAR_feature(sound_dir_loc)
         np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
+    elif "audiomae" in feature:
+        ckpt_path = get_audiomae_encoder_path(feature)
+        audiomae_feature = extract_audioMAE_feature(sound_dir_loc, ckpt_path=ckpt_path)
+        np.save(feature_dir + feature + "_feature.npy", np.array(audiomae_feature))
 
 
 def extract_and_save_embeddings(
@@ -155,6 +160,9 @@ def extract_and_save_embeddings(
         pretrain = "operaCT"
     elif feature == "operaCT-heart-all":
         ckpt_path = OPERACT_HEART_ALL_CKPT_PATH
+        pretrain = "operaCT"
+    elif feature == "operaCT-heart-all-scratch":
+        ckpt_path = ENCODER_PATH_OPERA_CT_HEART_ALL_SCRATCH
         pretrain = "operaCT"
     else:
         pretrain = feature
@@ -197,7 +205,7 @@ if __name__ == "__main__":
     else:
         seed = None
 
-    if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
+    if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"] or "audiomae" in args.pretrain:
         extract_and_save_embeddings_baselines(
             args.pretrain, args.fine_tuned, args.ckpt_path, seed
         )
@@ -207,6 +215,7 @@ if __name__ == "__main__":
             or args.pretrain == "operaCT-heart"
             or args.pretrain == "operaCT-heart-nonoisy"
             or args.pretrain == "operaCT-heart-all"
+            or args.pretrain == "operaCT-heart-all-scratch"
         ):
             input_sec = args.min_len_htsat
         elif args.pretrain == "operaCE":

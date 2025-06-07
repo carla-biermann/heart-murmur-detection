@@ -4,6 +4,8 @@ import csv
 import glob as gb
 import json
 import os
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -13,6 +15,7 @@ from src.benchmark.baseline.extract_feature import (
     extract_vgg_feature,
     extract_HeAR_feature,
 )
+from src.benchmark.model_util import extract_opera_feature, get_audiomae_encoder_path
 
 # Directories
 data_dir = "datasets/physionet.org/files/challenge-2016/1.0.0/"
@@ -22,6 +25,7 @@ OPERACT_HEART_NONOISY_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_z
 OPERACT_HEART_INDOMAIN_CKPT_PATH = "cks/model/combined/physionet16/encoder-operaCT-physionet16-indomain-epoch=239--valid_acc=0.98-valid_loss=0.0524.ckpt"
 OPERACT_HEART_INDOMAIN_PRETRAINED_CKPT_PATH = "cks/model/combined/physionet16/encoder-operaCT-physionet16-indomain-pretrained-epoch=169--valid_acc=0.99-valid_loss=0.0300.ckpt"
 OPERACT_HEART_ALL_CKPT_PATH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-epoch=159--valid_acc=0.94-valid_loss=0.3790.ckpt"
+ENCODER_PATH_OPERA_CT_HEART_ALL_SCRATCH = "cks/model/combined/circor_pascal_A_pascal_B_physionet16_zchsound_clean_zchsound_noisy/encoder-operaCT-heart-all-scratch-epoch=209--valid_acc=0.92-valid_loss=0.3899.ckpt"
 
 # Check if audio directory exists
 if not os.path.exists(data_dir):
@@ -274,13 +278,15 @@ def extract_and_save_embeddings_baselines(
     elif feature == "hear": # no fine-tuning possible, not open-source
         hear_feature = extract_HeAR_feature(sound_dir_loc)
         np.save(feature_dir + "hear_feature.npy", np.array(hear_feature))
+    elif "audiomae" in feature:
+        ckpt_path = get_audiomae_encoder_path(feature)
+        audiomae_feature = extract_audioMAE_feature(sound_dir_loc, ckpt_path=ckpt_path)
+        np.save(feature_dir + feature + "_feature.npy", np.array(audiomae_feature))
 
 
 def extract_and_save_embeddings(
     feature="operaCE", input_sec=8, dim=1280, fine_tuned=None, ckpt_path=None, seed=None
 ):
-    from src.benchmark.model_util import extract_opera_feature
-
     sound_dir_loc = np.load(feature_dir + "sound_dir_loc.npy")
     if feature == "operaCT-heart":
         ckpt_path = OPERACT_HEART_CKPT_PATH
@@ -297,6 +303,9 @@ def extract_and_save_embeddings(
     elif feature == "operaCT-heart-all":
         ckpt_path = OPERACT_HEART_ALL_CKPT_PATH
         pretrain = "operaCT"
+    elif feature == "operaCT-heart-all-scratch":
+        ckpt_path = ENCODER_PATH_OPERA_CT_HEART_ALL_SCRATCH
+        pretrain = "operaCT"
     else:
         pretrain = feature
     opera_features = extract_opera_feature(
@@ -312,45 +321,48 @@ def extract_and_save_embeddings(
     np.save(feature_dir + feature + suffix + "_feature.npy", np.array(opera_features))
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrain", type=str, default="operaCE")
-    parser.add_argument("--dim", type=int, default=1280)
-    parser.add_argument("--min_len_cnn", type=int, default=8)
-    parser.add_argument("--min_len_htsat", type=int, default=8)
-    parser.add_argument("--fine_tuned", type=str, default=None)
-    parser.add_argument("--ckpt_path", type=str, default=None)
-    parser.add_argument("--seed", type=int, default=None)
-
-    args = parser.parse_args()
+@hydra.main(config_path="../configs", config_name="physionet16_config", version_base=None)
+def main(cfg: DictConfig):
+    global feature_dir
+    print(OmegaConf.to_yaml(cfg))
+    if cfg.fine_tuned == "None":
+        cfg.fine_tuned = None
+    if cfg.ckpt_path == "None":
+        cfg.ckpt_path = None
+    if cfg.seed == "None":
+        cfg.seed = None  
 
     if not os.path.exists(feature_dir):
         os.makedirs(feature_dir)
         preprocess_split_independent()
 
-    if args.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"]:
+    if cfg.pretrain in ["vggish", "clap", "audiomae", "hear", "clap2023"] or "audiomae" in cfg.pretrain:
         extract_and_save_embeddings_baselines(
-            args.pretrain, args.fine_tuned, args.ckpt_path, args.seed
+            cfg.pretrain, cfg.fine_tuned, cfg.ckpt_path, cfg.seed
         )
     else:
         if (
-            args.pretrain == "operaCT"
-            or args.pretrain == "operaCT-heart"
-            or args.pretrain == "operaCT-heart-nonoisy"
-            or args.pretrain == "operaCT-heart-indomain"
-            or args.pretrain == "operaCT-heart-indomain-pretrained"
-            or args.pretrain == "operaCT-heart-all"
+            cfg.pretrain == "operaCT"
+            or cfg.pretrain == "operaCT-heart"
+            or cfg.pretrain == "operaCT-heart-nonoisy"
+            or cfg.pretrain == "operaCT-heart-indomain"
+            or cfg.pretrain == "operaCT-heart-indomain-pretrained"
+            or cfg.pretrain == "operaCT-heart-all"
+            or cfg.pretrain == "operaCT-heart-all-scratch"
         ):
-            input_sec = args.min_len_htsat
-        elif args.pretrain == "operaCE":
-            input_sec = args.min_len_cnn
-        elif args.pretrain == "operaGT":
+            input_sec = cfg.min_len_htsat
+        elif cfg.pretrain == "operaCE":
+            input_sec = cfg.min_len_cnn
+        elif cfg.pretrain == "operaGT":
             input_sec = 8.18
         extract_and_save_embeddings(
-            args.pretrain,
+            cfg.pretrain,
             input_sec=input_sec,
-            dim=args.dim,
-            fine_tuned=args.fine_tuned,
-            ckpt_path=args.ckpt_path,
-            seed=args.seed,
+            dim=cfg.dim,
+            fine_tuned=cfg.fine_tuned,
+            ckpt_path=cfg.ckpt_path,
+            seed=cfg.seed,
         )
+
+if __name__ == '__main__':
+    main()
