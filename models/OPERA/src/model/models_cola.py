@@ -227,7 +227,7 @@ class ColaMD(pl.LightningModule):
             self.dim_fea = self.encoder.out_emb
             if dim_hidden > self.dim_fea:
                 self.dim_hidden = self.dim_fea
-        if pretrain:
+        if pretrain is not None and pretrain != "None":
             encoder_path = get_encoder_path(pretrain)
             print("loading weights from", encoder_path)
             ckpt = torch.load(encoder_path)
