@@ -1377,11 +1377,7 @@ def linear_evaluation_heart(
         head,
     )
 
-    splits_filename = (
-        "train_test_pretrain_split.npy"
-        if "indomain" in use_feature
-        else "train_test_split.npy"
-    )
+    splits_filename = "train_test_split.npy"
 
     y_set = np.load(feature_dir + splits_filename)
     y_label = np.load(feature_dir + labels_filename)
@@ -1708,7 +1704,8 @@ def main(cfg: DictConfig):
 
     feature = cfg.pretrain
     if (
-        feature not in ["vggish", "opensmile", "clap", "audiomae", "hear", "clap2023"]
+        feature not in ["vggish", "opensmile", "clap", "audiomae", "hear", "clap2023"] 
+        and "audiomae" not in feature
         and "finetuned" not in feature
     ):  # baselines
         feature += str(cfg.dim)

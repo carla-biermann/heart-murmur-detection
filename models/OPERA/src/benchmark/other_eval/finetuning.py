@@ -18,7 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import ViTConfig, ViTModel
 import wandb
 
-from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model
+from src.benchmark.model_util import get_encoder_path, initialize_pretrained_model, get_audiomae_encoder_path
 from src.model.models_eval import (
     AudioClassifier,
     AudioClassifierAudioMAE,
@@ -956,7 +956,7 @@ def finetune_heart(
         loss_func = None
 
     from_audio = False
-    if pretrain == "audiomae":
+    if "audiomae" in pretrain:
         from src.benchmark.baseline.audioMAE.models_mae import (
             vit_base_patch16,
         )
@@ -982,7 +982,7 @@ def finetune_heart(
         x_data = np.load(feature_dir + "fbank_audiomae.npy")
         batch_size = 32
 
-        encoder_path = "src/benchmark/baseline/audioMAE/pretrained.pth"
+        encoder_path = get_audiomae_encoder_path(pretrain)
         ckpt = torch.load(encoder_path)
         net = vit_base_patch16(
             in_chans=1,
@@ -993,7 +993,10 @@ def finetune_heart(
             use_custom_patch=False,
         )
 
-        net.load_state_dict(ckpt["model"], strict=False)
+        try:
+            net.load_state_dict(ckpt["model"], strict=False)
+        except KeyError:
+            net.load_state_dict(ckpt["state_dict"], strict=False)
 
         model = AudioClassifierAudioMAE(
             net=net,
@@ -1143,17 +1146,29 @@ def finetune_heart(
             print("loading weights from", encoder_path)
             ckpt = torch.load(encoder_path)
             pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+        elif pretrain == "operaCT-heart-all" or "operaCT-heart-all-scratch":
+            pretrained_model = initialize_pretrained_model("operaCT")
+            encoder_path = get_encoder_path(pretrain)
+            print("loading weights from", encoder_path)
+            ckpt = torch.load(encoder_path)
+            pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+        elif pretrain == "operaCT-heart":
+            pretrained_model = initialize_pretrained_model("operaCT")
+            encoder_path = get_encoder_path(f"{pretrain}-cross-{dataset_name}")
+            print("loading weights from", encoder_path)
+            ckpt = torch.load(encoder_path)
+            pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+        elif pretrain == "null":
+            pretrained_model = initialize_pretrained_model(pretrain)
+            lr = 1e-4
+            epochs = 64
+            print("-" * 20 + "training from scratch")
         else:
             pretrained_model = initialize_pretrained_model(pretrain)
-            if pretrain == "null":
-                lr = 1e-4
-                epochs = 64
-                print("-" * 20 + "training from scratch")
-            else:
-                encoder_path = get_encoder_path(pretrain)
-                print("loading weights from", encoder_path)
-                ckpt = torch.load(encoder_path)
-                pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
+            encoder_path = get_encoder_path(pretrain)
+            print("loading weights from", encoder_path)
+            ckpt = torch.load(encoder_path)
+            pretrained_model.load_state_dict(ckpt["state_dict"], strict=False)
 
         if "mae" in pretrain or "GT" in pretrain:
             model = AudioClassifierAudioMAE(
