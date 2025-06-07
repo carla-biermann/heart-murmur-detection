@@ -24,6 +24,12 @@ models/OPERA/feature/pascal_B_eval/entire_spec_npy/*
 models/OPERA/feature/physionet16_eval/entire_spec_npy/*
 models/OPERA/feature/zchsound_clean_eval/entire_spec_npy/*
 models/OPERA/feature/zchsound_noisy_eval/entire_spec_npy/*
+models/OPERA/feature/circor_eval/audiomae_entire_spec_npy/*
+models/OPERA/feature/pascal_A_eval/audiomae_entire_spec_npy/*
+models/OPERA/feature/pascal_B_eval/audiomae_entire_spec_npy/*
+models/OPERA/feature/physionet16_eval/audiomae_entire_spec_npy/*
+models/OPERA/feature/zchsound_clean_eval/audiomae_entire_spec_npy/*
+models/OPERA/feature/zchsound_noisy_eval/audiomae_entire_spec_npy/*
 models/OPERA/feature/circor_eval/entire_spec_npy_in_domain/*
 models/OPERA/feature/physionet16_eval/entire_spec_npy_in_domain/*
 

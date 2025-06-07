@@ -1,15 +1,20 @@
-import argparse
+import time
+from functools import partial
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 
 # from pytorch_lightning.utilities import CombinedLoader
 from lightning.pytorch.utilities import CombinedLoader
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+import hydra
+from omegaconf import DictConfig
+
 
 from src.model.models_mae import MaskedAutoencoderViTMD
 from src.util import random_crop, random_mask, random_multiply
@@ -90,6 +95,18 @@ class AudioDataset(torch.utils.data.Dataset):
             assert x.shape == (self.max_len, 64)
             # x = x.T
             return x.astype(np.float32)
+        
+        elif self.method == "audiomae":
+            # cut and pad
+            p = self.max_len - x.shape[0]
+            if p < 0:
+                # x = x[0:self.max_len, :]
+                x = random_crop(x, crop_size=self.max_len)
+            elif p > 0:
+                x = np.pad(x, ((0, p), (0, 0)), mode="constant")
+            assert x.shape == (self.max_len, 128)
+            # x = x.T
+            return x.astype(np.float32)
 
 
 class DecayLearningRate(pl.Callback):
@@ -116,20 +133,23 @@ class DecayLearningRate(pl.Callback):
             self.old_lrs[opt_idx] = new_lr_group
 
 
+def get_wandb_name(title):
+    s = time.gmtime(time.time())
+    return f"{time.strftime('%Y-%m-%d %H:%M:%S', s)}-{title}"
+
+
 def mae_train_multiple_data(
     title,
     data_source={"covidbreath": 251},
-    dim_hidden=1280,
-    dim_out=512,
     encoder="vit",
     n_epoches=150,
     training_method="mae",
+    pretrain=None,
 ):
     print(data_source)
-    training_method = "mae"
 
     batch_size = 64
-    epochs = 512
+    epochs = n_epoches
 
     num_batch = []
 
@@ -174,6 +194,10 @@ def mae_train_multiple_data(
 
         elif dt == "covidUKcough":
             filenames = list(np.load("datasets/covidUK/entire_cough_filenames.npy"))
+
+        elif dt in ["circor", "physionet16", "zchsound_clean", "zchsound_noisy", "pascal_A", "pascal_B"]:
+            if training_method == "audiomae":
+                filenames = list(np.load(f"feature/{dt}_eval/audiomae_entire_spec_filenames.npy"))
 
         # # measuing audio length
         # data_lengths = []
@@ -225,10 +249,6 @@ def mae_train_multiple_data(
     else:
         encoder = "vit"
 
-    from functools import partial
-
-    import torch.nn as nn
-
     model = MaskedAutoencoderViTMD(
         img_size=(256, 64),
         patch_size=4,
@@ -258,12 +278,68 @@ def mae_train_multiple_data(
         num_batch=num_batch,
     )
 
+    if pretrain == "audiomae":
+        model = MaskedAutoencoderViTMD(
+            img_size=(1024, 128),
+            patch_size=16,
+            mask_ratio=0.7,
+            embed_dim=768,
+            depth=12,
+            num_heads=12,  # for Encoder
+            decoder_embed_dim=512,
+            decoder_depth=6,
+            decoder_num_heads=16,
+            mlp_ratio=4,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6),
+            norm_pix_loss=False,  # Traing loss
+            in_chans=1,
+            audio_exp=True,
+            alpha=0.0,
+            mode=0,
+            use_custom_patch=False,
+            split_pos=False,
+            pos_trainable=False,
+            use_nce=False,
+            decoder_mode=1,  # decoder mode 0: global attn 1: swined local attn
+            mask_2d=False,
+            mask_t_prob=0.6,
+            mask_f_prob=0.5,
+            no_shift=False,
+            num_batch=num_batch,
+        )
+        print("pretrain is audiomae")
+        checkpoint = torch.load('src/benchmark/baseline/audioMAE/pretrained.pth') 
+        state_dict = checkpoint.get("model", checkpoint)
+        model.load_state_dict(state_dict, strict=True)
+
     model = model.float()
 
-    logger = CSVLogger(
-        save_dir="cks/logs",
-        name="combined",
-        version=title,
+    # logger = CSVLogger(
+    #     save_dir="cks/logs",
+    #     name="combined",
+    #     version=title,
+    # )
+
+    wandb_logger = WandbLogger(
+        project="Heart-Sound-Analysis-PT",
+        name=get_wandb_name(title),
+        log_model=True,
+    )
+
+    wandb_logger.experiment.config.update(
+        {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "encoder": encoder,
+            "training_method": training_method,
+            "pretrain": pretrain,
+            "circor": "circor" in data_source,
+            "physionet16": "physionet16" in data_source,
+            "pascal_A": "pascal_A" in data_source,
+            "pascal_B": "pascal_B" in data_source,
+            "zchsound_clean": "zchsound_clean" in data_source,
+            "zchsound_noisy": "zchsound_noisy" in data_source,
+        }
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -281,7 +357,7 @@ def mae_train_multiple_data(
         accelerator="gpu",
         devices=1,
         # gpus=1,
-        logger=logger,
+        logger=wandb_logger,
         # checkpoint_callback=checkpoint_callback,
         callbacks=[DecayLearningRate(), checkpoint_callback],
     )
@@ -292,54 +368,46 @@ def mae_train_multiple_data(
     trainer.test(dataloaders=val_loader)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--title", type=str)
-    parser.add_argument("--data", type=str, default="multiple")
+@hydra.main(config_path="../benchmark/configs", config_name="pretrain_mae_config", version_base=None)
+def main(cfg: DictConfig):
 
-    # for training with multiple data
-    parser.add_argument("--covidbreath", type=bool, default=False)
-    parser.add_argument("--covidcough", type=bool, default=False)
-    parser.add_argument("--icbhi", type=bool, default=False)
-    parser.add_argument("--icbhicycle", type=bool, default=False)
-    parser.add_argument("--coughvid", type=bool, default=False)
-    parser.add_argument("--hf_lung", type=bool, default=False)
-    parser.add_argument("--covidUKexhalation", type=bool, default=False)
-    parser.add_argument("--covidUKcough", type=bool, default=False)
-
-    # control training
-    parser.add_argument("--dim_hidden", type=int, default=1280)
-    parser.add_argument("--dim_out", type=int, default=384)
-    parser.add_argument("--encoder", type=str, default="vit")
-    parser.add_argument("--epoches", type=int, default=512)
-    parser.add_argument("--seed", type=int, default=42)
-
-    # training goal
-    parser.add_argument("--method", type=str, default="cola")
-
-    args = parser.parse_args()
-
-    optimal_max_len = {
-        "covidbreath": 256,
-        "covidcough": 64,
-        "icbhicycle": 64,
-        "coughvid": 64,
-        "hf_lung": 256,
-        "covidUKexhalation": 128,
-        "covidUKcough": 64,
-    }
+    if cfg.method == "mae":
+        optimal_max_len = {
+            "covidbreath": 256,
+            "covidcough": 64,
+            "icbhicycle": 64,
+            "coughvid": 64,
+            "hf_lung": 256,
+            "covidUKexhalation": 128,
+            "covidUKcough": 64,
+        }
+    elif cfg.method == "audiomae":
+        optimal_max_len = {
+            "circor": 1024,
+            "pascal_A": 1024,
+            "pascal_B": 1024,
+            "physionet16": 1024,
+            "zchsound_clean": 1024,
+            "zchsound_noisy": 1024,
+        }
     # optimal_max_len = {"covidbreath": 64, "covidcough": 64, "covidvoice": 64, "icbhicycle": 64,  "coughvid":64, "hf_lung":64, "covidUKexhalation": 64, "covidUKcough": 64} #equal length traning
+
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
 
     data_source = {}
     for dt, max_len in optimal_max_len.items():
-        if getattr(args, dt) is True:
+        if getattr(cfg, dt) is True:
             data_source[dt] = max_len
     mae_train_multiple_data(
-        args.title,
+        cfg.title,
         data_source=data_source,
-        dim_hidden=args.dim_hidden,
-        dim_out=args.dim_out,
-        encoder=args.encoder,
-        n_epoches=args.epoches,
-        training_method=args.method,
+        encoder=cfg.encoder,
+        n_epoches=cfg.epoches,
+        training_method=cfg.method,
+        pretrain=cfg.pretrain
     )
+
+
+if __name__ == "__main__":
+    main()

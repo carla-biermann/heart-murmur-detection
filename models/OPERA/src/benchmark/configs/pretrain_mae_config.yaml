@@ -1,0 +1,46 @@
+defaults:
+- override /hydra/launcher: submitit_slurm
+
+hydra:
+  callbacks:
+    log_job_return:
+      target: hydra.experimental.callbacks.LogJobReturnCallback
+  launcher:
+    nodes: 1
+    gpus_per_node: 1
+    timeout_min: 480
+    constraint:
+    partition: ampere
+    #qos: INTR # interactive
+    name: ${hydra.run.dir}/${hydra.job.override_dirname}
+    max_num_timeout: 3
+    stderr_to_stdout: true
+    account: COMPUTERLAB-SL2-GPU
+
+title: audiomae-heart
+data: multiple
+
+covidbreath: False
+covidcough: False
+icbhi: False
+icbhicycle: False
+coughvid: False
+hf_lung: False
+covidUKexhalation: False
+covidUKcough: False
+circor: False
+pascal_A: False
+pascal_B: False
+physionet16: False
+zchsound_clean: False
+zchsound_noisy: False
+
+# control training
+pretrain: None
+encoder: vit
+epoches: 512
+seed: 42
+
+# training goal
+method: audiomae
+

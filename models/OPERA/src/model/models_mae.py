@@ -661,8 +661,8 @@ class MaskedAutoencoderViTMD(pl.LightningModule):
             feat_size = (102, 12)
         else:
             window_size = (4, 4)
-            # feat_size = (64,8)# HxW=decoder_embed_dim
-            feat_size = (32, 8)  # HxW=decoder_embed_dim
+            feat_size = (64, 8) # HxW=decoder_embed_dim for Audio-MAE
+            #feat_size = (32, 8)  # HxW=decoder_embed_dim for OPERA-GT
 
         if self.decoder_mode == 1:
             decoder_modules = []
