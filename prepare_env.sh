@@ -1,6 +1,6 @@
 #!/bin/bash
 # Define your variables
-GIT_REPO_URL="https://github.com/evelyn0414/OPERA.git"
+GIT_REPO_URL="https://github.com/carla-biermann/heart-murmur-detection.git"
 PROJECT_DIR="$(pwd)"
 echo "Project path $PROJECT_DIR"
 BASHRC_FILE="$HOME/.bashrc"
