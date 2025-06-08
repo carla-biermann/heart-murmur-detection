@@ -3,39 +3,38 @@ datasets/circor
 datasets/PASCAL
 datasets/physionet.org
 datasets/ZCHSound
-models/OPERA/datasets/*
 
 # Logging
 wandb/
 
 # Saved models
-models/OPERA/cks/model/*
-models/OPERA/cks/linear/*
-models/OPERA/cks/linear_old/*
-models/OPERA/cks/linear_cv/*
-models/OPERA/cks/finetune/*
-models/OPERA/src/benchmark/baseline/audioMAE/pretrained.pth
-models/OPERA/src/benchmark/baseline/vggish/vggish_model.ckpt
+cks/model/*
+cks/linear/*
+cks/linear_old/*
+cks/linear_cv/*
+cks/finetune/*
+src/benchmark/baseline/audioMAE/pretrained.pth
+src/benchmark/baseline/vggish/vggish_model.ckpt
 
 # Pretraining preprocessed data
-models/OPERA/feature/circor_eval/entire_spec_npy/*
-models/OPERA/feature/pascal_A_eval/entire_spec_npy/*
-models/OPERA/feature/pascal_B_eval/entire_spec_npy/*
-models/OPERA/feature/physionet16_eval/entire_spec_npy/*
-models/OPERA/feature/zchsound_clean_eval/entire_spec_npy/*
-models/OPERA/feature/zchsound_noisy_eval/entire_spec_npy/*
-models/OPERA/feature/circor_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/pascal_A_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/pascal_B_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/physionet16_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/zchsound_clean_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/zchsound_noisy_eval/audiomae_entire_spec_npy/*
-models/OPERA/feature/circor_eval/entire_spec_npy_in_domain/*
-models/OPERA/feature/physionet16_eval/entire_spec_npy_in_domain/*
+feature/circor_eval/entire_spec_npy/*
+feature/pascal_A_eval/entire_spec_npy/*
+feature/pascal_B_eval/entire_spec_npy/*
+feature/physionet16_eval/entire_spec_npy/*
+feature/zchsound_clean_eval/entire_spec_npy/*
+feature/zchsound_noisy_eval/entire_spec_npy/*
+feature/circor_eval/audiomae_entire_spec_npy/*
+feature/pascal_A_eval/audiomae_entire_spec_npy/*
+feature/pascal_B_eval/audiomae_entire_spec_npy/*
+feature/physionet16_eval/audiomae_entire_spec_npy/*
+feature/zchsound_clean_eval/audiomae_entire_spec_npy/*
+feature/zchsound_noisy_eval/audiomae_entire_spec_npy/*
+feature/circor_eval/entire_spec_npy_in_domain/*
+feature/physionet16_eval/entire_spec_npy_in_domain/*
 
 
 # Scripts in progress
-models/OPERA/scripts/*
+scripts/*
 
 # Debugging
 launch.json
@@ -46,5 +45,5 @@ launch.json
 __pycache__/
 
 # Hydra
-models/OPERA/multirun/*
-models/OPERA/outputs/*
+multirun/*
+outputs/*
