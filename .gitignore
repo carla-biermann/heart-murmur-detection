@@ -32,10 +32,6 @@ feature/zchsound_noisy_eval/audiomae_entire_spec_npy/*
 feature/circor_eval/entire_spec_npy_in_domain/*
 feature/physionet16_eval/entire_spec_npy_in_domain/*
 
-
-# Scripts in progress
-scripts/*
-
 # Debugging
 launch.json
 *.ipynb
