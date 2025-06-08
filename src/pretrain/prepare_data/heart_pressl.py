@@ -114,9 +114,9 @@ if __name__ == "__main__":
     parser.add_argument("--in_domain", type=bool, default=False)
     args = parser.parse_args()
 
-    # preprocess_spectrogram_SSL(
-    #     feature_dir=args.feature_dir, input_sec=args.input_sec, in_domain=args.in_domain
-    # )
+    preprocess_spectrogram_SSL(
+        feature_dir=args.feature_dir, input_sec=args.input_sec, in_domain=args.in_domain
+    )
 
     preprocess_spectrogram_SSL_audiomae(
         feature_dir=args.feature_dir, input_sec=args.input_sec, in_domain=args.in_domain
